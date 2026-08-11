@@ -10,8 +10,14 @@
  *   - Focus is a 3px ring with a 2px offset, on everything, always visible.
  *   - Nothing that matters is signalled by colour alone.
  *
- * The palette is Saylavy's: parchment, navy, and a single crimson accent used
- * only for the action the user is most likely to want next.
+ * The palette is Saylavy's, taken from the tokens on saylavy.com: the
+ * #204BCC primary ramp over slate neutrals, set in Open Sans.
+ *
+ * One deliberate divergence. Saylavy.com runs dark; this runs light. Dark
+ * backgrounds reduce legibility for readers with cataracts or reduced
+ * contrast sensitivity, which describes a large share of the people using
+ * this tool, and the professional-editor look is itself intimidating here.
+ * These are Saylavy's light-mode surface tokens, not a different palette.
  */
 
 /* --------------------------------------------------------------------------
@@ -46,24 +52,33 @@ input {
    -------------------------------------------------------------------------- */
 
 :root {
-  --paper: #fbf7f0;
-  --surface: #ffffff;
-  --surface-sunken: #f3ece1;
+  /* Surfaces — Saylavy's slate ramp, light mode. */
+  --paper: #f8fafc; /* slate-50 */
+  --surface: #ffffff; /* surface-0 */
+  --surface-sunken: #f1f5f9; /* slate-100 */
 
-  --ink: #16202e;
-  --ink-soft: #45536b;
+  --ink: #0f172a; /* slate-900 — 16.9:1 on paper */
+  --ink-soft: #475569; /* slate-600 — 7.6:1 on white */
 
-  --line: #d9d0c2;
-  --line-strong: #b9ac96;
+  --line: #e2e8f0; /* slate-200, decorative dividers */
+  /* slate-500, not slate-400: a border that carries meaning needs 3:1, and
+     slate-400 only manages 2.6:1 on white. This one is 4.8:1. */
+  --line-strong: #64748b;
 
-  --accent: #8c1d2b;
-  --accent-hover: #6f1622;
+  /* Saylavy primary ramp. 500 is the brand blue. */
+  --accent: #204bcc; /* primary-500 — 7.2:1 both ways against white */
+  --accent-light: #5f85e1; /* primary-400, gradients only */
+  --accent-hover: #183aa0; /* primary-700 */
   --accent-ink: #ffffff;
 
-  --danger: #9c1f1f;
-  --danger-tint: #fdf2f2;
+  /* red-800 rather than red-600: the lighter reds only reach 6.5:1, and a
+     warning about deleting part of someone's memorial film should be AAA. */
+  --danger: #991b1b;
+  --danger-tint: #fef2f2;
 
-  --focus: #1b5fbf;
+  /* Same blue as the accent. The 2px outline offset leaves a gap of page
+     background, so the ring stays visible even around a primary button. */
+  --focus: #204bcc;
 
   --radius: 10px;
   --radius-lg: 16px;
@@ -75,7 +90,8 @@ input {
   --space-5: 2rem;
   --space-6: 3rem;
 
-  --shadow: 0 1px 2px rgba(22, 32, 46, 0.08), 0 4px 12px rgba(22, 32, 46, 0.06);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --ring-accent: rgba(32, 75, 204, 0.16);
 
   /* Every hit area is measured against this. */
   --target: 56px;
@@ -94,7 +110,13 @@ html {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  /* Open Sans is Saylavy's typeface. It is NOT loaded from a font CDN: a
+     request to fonts.googleapis.com would tell a third party that someone is
+     using a funeral tool, which contradicts the whole premise of this app.
+     Used when present, with a humanist system fallback otherwise. Self-hosting
+     the woff2 is the proper fix — see docs/ROADMAP.md. */
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
   font-size: 1rem;
   line-height: 1.6;
   /* Long sentences are harder to track with age-related vision changes. */
@@ -211,7 +233,7 @@ a {
   width: 14px;
   height: 40px;
   border-radius: 3px;
-  background: linear-gradient(var(--accent), #4a1018);
+  background: linear-gradient(var(--accent-light), var(--accent-hover));
   flex: none;
 }
 
@@ -262,7 +284,7 @@ a {
   /* Kept well above the 3:1 line: a disabled control still has to be readable,
      because its label is often the explanation for why it is disabled. */
   opacity: 1;
-  color: #6e7788;
+  color: #64748b; /* slate-500 — 4.8:1, still comfortably readable */
   background: var(--surface-sunken);
   border-color: var(--line);
   border-style: dashed;
@@ -291,7 +313,7 @@ a {
 }
 
 .btn:disabled .btn__hint {
-  color: #79808e;
+  color: #64748b;
 }
 
 .btn--large {
@@ -312,7 +334,7 @@ a {
 }
 
 .btn--primary .btn__hint {
-  color: #f2dfe2;
+  color: #e3ebff; /* primary-100 — legible on the brand blue */
 }
 
 .btn--primary:hover:not(:disabled) {
@@ -552,7 +574,7 @@ a {
   border-color: var(--accent);
   border-width: 4px;
   padding: calc(var(--space-2) - 2px);
-  box-shadow: 0 0 0 3px rgba(140, 29, 43, 0.16);
+  box-shadow: 0 0 0 3px var(--ring-accent);
 }
 
 .piece__number {

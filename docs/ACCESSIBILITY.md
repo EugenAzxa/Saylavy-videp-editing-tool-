@@ -108,19 +108,36 @@ borders that carry meaning — selection, progress, button edges — survive a r
 
 ## Colour and contrast
 
-The palette is Saylavy's: parchment, navy, one crimson accent used only for the action the user is
-most likely to want next.
+The palette is Saylavy's own, lifted from the PrimeVue tokens published on saylavy.com: the
+`#204BCC` primary ramp over slate neutrals, set in Open Sans. The brand blue is reserved for the
+action the user is most likely to want next.
 
 | Pair | Ratio | Standard |
 | --- | --- | --- |
-| `--ink` #16202E on `--paper` #FBF7F0 | ~14.9:1 | AAA |
-| `--ink-soft` #45536B on `--surface` #FFFFFF | ~7.4:1 | AAA |
-| `--accent-ink` #FFFFFF on `--accent` #8C1D2B | ~9.2:1 | AAA |
-| `--danger` #9C1F1F on `--surface` #FFFFFF | ~7.6:1 | AAA |
+| `--ink` #0F172A on `--paper` #F8FAFC | ~16.9:1 | AAA |
+| `--ink-soft` #475569 on `--surface` #FFFFFF | ~7.6:1 | AAA |
+| `--accent` #204BCC on `--surface` #FFFFFF | ~7.2:1 | AAA |
+| `--accent-ink` #FFFFFF on `--accent` #204BCC | ~7.2:1 | AAA |
+| `--danger` #991B1B on `--surface` #FFFFFF | ~8.4:1 | AAA |
+| `--line-strong` #64748B on `--surface` #FFFFFF | ~4.8:1 | AA (UI, needs 3:1) |
 
-A light background rather than the dark chrome video editors usually wear: dark themes reduce
-legibility for readers with cataracts or reduced contrast sensitivity, and the professional-tool
-look is itself intimidating to this audience.
+Two choices in there are deliberate departures from the obvious pick:
+
+- **`--line-strong` is slate-500, not slate-400.** A border that carries meaning — the edge of a
+  button — needs 3:1. Slate-400 manages only 2.6:1 on white.
+- **`--danger` is red-800, not red-600.** The lighter reds reach about 6.5:1, and the warning
+  attached to deleting part of someone's memorial film should clear AAA.
+
+### Why this runs light when saylavy.com runs dark
+
+The marketing site sets `<html class="dark">`. This tool does not, and the divergence is
+intentional: dark backgrounds reduce legibility for readers with cataracts or reduced contrast
+sensitivity, which describes a large share of this audience, and the dark chrome that video editors
+usually wear is itself intimidating to someone who has never opened one.
+
+These are still Saylavy's tokens — the design system defines both modes, and this uses the light
+surface set. If the brand ever mandates dark here, that is a decision to take with evidence from
+users over seventy, not a styling preference.
 
 ---
 

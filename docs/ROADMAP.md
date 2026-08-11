@@ -124,7 +124,18 @@ If this matters, the move is to probe with a hidden `<video>` element for durati
 accept losing reliable `hasAudio` detection at import, and dynamic-import Mediabunny only when the
 user saves. Measure before doing this; 199KB gzipped is not obviously a problem.
 
-## 9. Testing gaps
+## 9. Self-host Open Sans
+
+The app asks for Open Sans — Saylavy's typeface — and falls back to the system sans stack when it
+is not installed. It is deliberately **not** loaded from a font CDN: a request to
+`fonts.googleapis.com` would tell Google that someone is using a funeral-planning tool, which
+contradicts the privacy promise the interface makes on its own front page.
+
+The fix is to self-host: drop the `woff2` files (Open Sans is under the SIL Open Font License) into
+`public/fonts/`, add an `@font-face` with `font-display: swap`, and preload the regular and
+semibold weights. Small job, and it makes the brand match exact rather than best-effort.
+
+## 10. Testing gaps
 
 - `@axe-core/playwright` over the existing Playwright suite — small job, catches real regressions.
 - Screen-reader testing with NVDA and VoiceOver.

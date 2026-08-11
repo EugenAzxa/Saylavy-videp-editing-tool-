@@ -4,6 +4,10 @@ const BASE_URL = 'http://localhost:5173'
 
 export default defineConfig({
   testDir: './tests',
+  // The production smoke test needs the built bundle served with the real
+  // vercel.json headers, which is a different server. It has its own config:
+  // playwright.prod.config.ts, run via `npm run test:prod`.
+  testIgnore: /production\.spec\.ts/,
   // Rendering a film is not a fast operation, even a three-second one.
   timeout: 180_000,
   expect: { timeout: 15_000 },

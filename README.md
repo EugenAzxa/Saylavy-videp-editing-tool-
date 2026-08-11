@@ -29,6 +29,11 @@ Everything runs in the browser. Nothing is uploaded. There is no server, no acco
 database — which is a deliberate product decision, not a missing feature. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+That promise is also **enforced rather than asserted**: the deployed site sends
+`Content-Security-Policy: … connect-src 'self'`, which instructs the browser to refuse any request
+to another origin. Even a bug could not upload someone's footage. See
+[docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## What it does not do yet
 
 Background music, titles and captions, photo pan-and-zoom, and transitions are all **not built**.
@@ -62,6 +67,8 @@ __saylavySampleVideo()      // downloads a 3-second MP4 you can then import
 | `npm run test` | Full Playwright suite (unit + end-to-end) |
 | `npm run test:unit` | Just the timeline logic — fast, no browser work |
 | `npm run test:e2e` | Just the browser tests, including a real MP4 export |
+| `npm run test:prod` | Builds, serves with the real production headers, exports a film |
+| `npm run preview:prod` | Serves `dist/` locally with the real `vercel.json` headers |
 | `npm run test:install` | One-off: download the Chromium the tests need |
 
 The end-to-end tests generate their own video fixture at runtime, so there is no sample footage
@@ -108,6 +115,7 @@ tests/
   timeline.spec.ts   Unit tests for the edit operations
   editor.spec.ts     End-to-end, including an export that is verified as a real MP4
 docs/
+  DEPLOY.md          Getting it onto saylavy.pro, and what to check afterwards
   ARCHITECTURE.md    Why it is built this way
   ACCESSIBILITY.md   The promises the interface makes, and how they are enforced
   CONTRIBUTING.md    Conventions and how to work on it

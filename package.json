@@ -12,7 +12,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "preview:prod": "node scripts/serve-dist.mjs",
     "test": "playwright test",
+    "test:prod": "playwright test --config playwright.prod.config.ts",
     "test:unit": "playwright test tests/timeline.spec.ts",
     "test:e2e": "playwright test tests/editor.spec.ts",
     "test:install": "playwright install chromium"

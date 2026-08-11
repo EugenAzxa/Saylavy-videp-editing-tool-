@@ -2,6 +2,7 @@ import { announce } from '@/state/announce'
 import { useEditor } from '@/state/store'
 import { Button } from './Button'
 import { RedoIcon, UndoIcon } from './Icon'
+import { ThemeToggle } from './ThemeToggle'
 
 /**
  * Undo lives in the header, at full size, always visible and never hidden in
@@ -49,6 +50,7 @@ export function Header() {
             announce('Redone.')
           }}
         />
+        <ThemeToggle />
       </div>
     </header>
   )

@@ -145,6 +145,32 @@ export function TrimEndIcon({ size = 1 }: IconProps) {
   )
 }
 
+export function SunIcon({ size = 1 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" />
+    </svg>
+  )
+}
+
+export function MoonIcon({ size = 1 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M20 13.5A8.5 8.5 0 0 1 10.5 4a8.5 8.5 0 1 0 9.5 9.5Z" />
+    </svg>
+  )
+}
+
+export function SparkIcon({ size = 1 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M12 3.5 13.9 9l5.6 1.9-5.6 1.9L12 18.4l-1.9-5.6L4.5 10.9 10.1 9 12 3.5Z" />
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z" />
+    </svg>
+  )
+}
+
 export function WarningIcon({ size = 1 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

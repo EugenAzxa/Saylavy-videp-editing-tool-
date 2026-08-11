@@ -31,6 +31,8 @@ Both must pass. `npm run build` runs the typecheck itself, so it is a reasonable
 | What an edit does | `src/core/timeline.ts` | `tests/timeline.spec.ts` |
 | How a frame looks | `src/playback/compositor.ts` | `tests/editor.spec.ts` |
 | What the user sees or reads | `src/ui/` | `tests/editor.spec.ts` |
+| Colours, motion, or layout | `src/styles/global.css` | `tests/editor.spec.ts` |
+| The practice clips | `src/media/exampleFilm.ts` | `tests/editor.spec.ts` |
 | Import behaviour or error text | `src/media/` | — |
 | The saved file | `src/export/exportVideo.ts` | `tests/editor.spec.ts` |
 
@@ -69,11 +71,21 @@ Drag may be added as an enhancement, never as the only route.
 
 **8. No destructive single-key shortcuts.**
 
-**9. Error messages are sentences a grieving non-technical person can act on.**
+**9. Every entrance animation keeps `animation-fill-mode: both`.**
+Reduced motion collapses the duration to nothing, and the fill is the only thing that then leaves
+the content on screen. Without it the page renders blank for anyone who asked for less movement.
+There is a test for this.
+
+**10. Both themes are held to the same contrast bar.**
+Dark is not a decorative mode that gets a pass. Add a token to one theme and you add it to the
+other, with the ratio checked. Colours live only in the two token blocks at the top of
+`global.css` — no hex values in component rules.
+
+**11. Error messages are sentences a grieving non-technical person can act on.**
 No codes, no codec names. `MediaImportError` and `ExportFailed` both carry a `userMessage` field;
 use it.
 
-**10. Nothing is uploaded.**
+**12. Nothing is uploaded.**
 Any feature that would send user media off the device is a business decision, not a pull request.
 
 ---

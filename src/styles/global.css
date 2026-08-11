@@ -51,34 +51,52 @@ input {
    2. Tokens
    -------------------------------------------------------------------------- */
 
+/*
+ * DARK IS THE DEFAULT, and it lives on plain `:root` rather than on
+ * `[data-theme='dark']` deliberately: if the inline theme script in index.html
+ * ever fails, the page still renders correctly instead of losing every token.
+ * Light is an override layered on top.
+ *
+ * Contrast ratios below are against this theme's own card surface. Both themes
+ * are held to the same bar — see docs/ACCESSIBILITY.md.
+ */
 :root {
-  /* Surfaces — Saylavy's slate ramp, light mode. */
-  --paper: #f8fafc; /* slate-50 */
-  --surface: #ffffff; /* surface-0 */
-  --surface-sunken: #f1f5f9; /* slate-100 */
+  color-scheme: dark;
 
-  --ink: #0f172a; /* slate-900 — 16.9:1 on paper */
-  --ink-soft: #475569; /* slate-600 — 7.6:1 on white */
+  --paper: #0b1120; /* the page */
+  --surface: #131c31; /* cards, lifted off the page */
+  --surface-sunken: #1b2540; /* wells and tracks inside cards */
 
-  --line: #e2e8f0; /* slate-200, decorative dividers */
-  /* slate-500, not slate-400: a border that carries meaning needs 3:1, and
-     slate-400 only manages 2.6:1 on white. This one is 4.8:1. */
-  --line-strong: #64748b;
+  /* Off-white, not pure white. Pure #fff on near-black haloes badly for
+     readers with astigmatism or cataracts, which is most of this audience. */
+  --ink: #e8edf7; /* 16.1:1 on the page */
+  --ink-soft: #9fb0cc; /* 7.7:1 on a card */
+  --ink-disabled: #8fa0bf; /* 5.7:1 on a sunken well */
 
-  /* Saylavy primary ramp. 500 is the brand blue. */
-  --accent: #204bcc; /* primary-500 — 7.2:1 both ways against white */
-  --accent-light: #5f85e1; /* primary-400, gradients only */
-  --accent-hover: #183aa0; /* primary-700 */
+  --line: #253048;
+  --line-strong: #6b7c9e; /* 4.0:1 on a card — button edges must clear 3:1 */
+
+  /* The brand blue is too dark to sit ON a dark surface, so text and edges use
+     primary-400 while the filled button keeps primary-500 with white on it —
+     which is still 7.2:1. The button gets a lighter border so its shape reads. */
+  --accent: #204bcc; /* primary-500, fills only */
+  --accent-edge: #5f85e1; /* primary-400 — 4.8:1 on a card */
+  --accent-light: #93b4ff;
+  --accent-hover: #2c5ce6;
   --accent-ink: #ffffff;
 
-  /* red-800 rather than red-600: the lighter reds only reach 6.5:1, and a
-     warning about deleting part of someone's memorial film should be AAA. */
-  --danger: #991b1b;
-  --danger-tint: #fef2f2;
+  --danger: #f87171; /* red-400 — 6.1:1 on a card */
+  --danger-tint: #2a1416;
 
-  /* Same blue as the accent. The 2px outline offset leaves a gap of page
-     background, so the ring stays visible even around a primary button. */
-  --focus: #204bcc;
+  --focus: #93b4ff; /* 8.3:1 on a card */
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 28px rgba(0, 0, 0, 0.38);
+  --ring-accent: rgba(95, 133, 225, 0.26);
+  --glow: 0 10px 30px -8px rgba(32, 75, 204, 0.75);
+
+  /* A faint brand wash behind everything, so the page is not a flat slab. */
+  --page-wash: radial-gradient(900px 520px at 10% -12%, rgba(32, 75, 204, 0.34), transparent 62%),
+    radial-gradient(760px 460px at 95% -4%, rgba(95, 133, 225, 0.16), transparent 60%);
 
   --radius: 10px;
   --radius-lg: 16px;
@@ -90,11 +108,48 @@ input {
   --space-5: 2rem;
   --space-6: 3rem;
 
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
-  --ring-accent: rgba(32, 75, 204, 0.16);
-
   /* Every hit area is measured against this. */
   --target: 56px;
+
+  /* Motion. Calm and short by design — see section 16. */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --rise: 420ms;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --paper: #eef2fa; /* tinted, not white — cards need something to sit on */
+  --surface: #ffffff;
+  --surface-sunken: #f1f5f9;
+
+  --ink: #0f172a; /* 17.6:1 on the page */
+  --ink-soft: #475569; /* 7.6:1 on a card */
+  --ink-disabled: #64748b; /* 4.8:1 */
+
+  --line: #e2e8f0;
+  /* slate-500, not slate-400: slate-400 manages only 2.6:1 on white. */
+  --line-strong: #64748b;
+
+  --accent: #204bcc; /* 7.2:1 both ways against white */
+  --accent-edge: #204bcc;
+  --accent-light: #5f85e1;
+  --accent-hover: #183aa0; /* primary-700 */
+  --accent-ink: #ffffff;
+
+  /* red-800 rather than red-600: the lighter reds only reach 6.5:1, and a
+     warning about deleting part of someone's memorial film should be AAA. */
+  --danger: #991b1b;
+  --danger-tint: #fef2f2;
+
+  --focus: #204bcc;
+
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
+  --ring-accent: rgba(32, 75, 204, 0.16);
+  --glow: 0 10px 30px -10px rgba(32, 75, 204, 0.5);
+
+  --page-wash: radial-gradient(900px 520px at 10% -12%, rgba(32, 75, 204, 0.12), transparent 62%),
+    radial-gradient(760px 460px at 95% -4%, rgba(95, 133, 225, 0.1), transparent 60%);
 }
 
 /* --------------------------------------------------------------------------
@@ -121,6 +176,18 @@ body {
   line-height: 1.6;
   /* Long sentences are harder to track with age-related vision changes. */
   text-wrap: pretty;
+  min-height: 100vh;
+}
+
+/* The brand wash. Fixed and behind everything, so scrolling does not drag a
+   gradient around and cost a repaint on every frame. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--page-wash);
 }
 
 h1,
@@ -284,7 +351,7 @@ a {
   /* Kept well above the 3:1 line: a disabled control still has to be readable,
      because its label is often the explanation for why it is disabled. */
   opacity: 1;
-  color: #64748b; /* slate-500 — 4.8:1, still comfortably readable */
+  color: var(--ink-disabled);
   background: var(--surface-sunken);
   border-color: var(--line);
   border-style: dashed;
@@ -313,7 +380,7 @@ a {
 }
 
 .btn:disabled .btn__hint {
-  color: #64748b;
+  color: var(--ink-disabled);
 }
 
 .btn--large {
@@ -329,8 +396,16 @@ a {
 
 .btn--primary {
   background: var(--accent);
-  border-color: var(--accent);
+  /* In dark mode the fill is only 2.4:1 against the card behind it, so the
+     button's shape would vanish without a lighter edge. In light mode this
+     token is the same blue and the border is invisible, as intended. */
+  border-color: var(--accent-edge);
   color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+
+.btn--primary:hover:not(:disabled) {
+  box-shadow: var(--glow), 0 0 0 4px var(--ring-accent);
 }
 
 .btn--primary .btn__hint {
@@ -366,6 +441,7 @@ a {
 .panel,
 .save,
 .failures,
+.how,
 .dropzone {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -415,6 +491,76 @@ a {
   max-width: 46ch;
   font-size: 0.82rem;
   color: var(--ink-soft);
+}
+
+.dropzone__example {
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dropzone__or {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------------------
+   8b. How it works
+   -------------------------------------------------------------------------- */
+
+.how__title {
+  margin-bottom: var(--space-3);
+}
+
+.how__list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.how__step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.how__number {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--accent-edge);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.how__step-title {
+  margin-bottom: 2px;
+}
+
+.how__body {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.how__reassure {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  font-size: 0.88rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -860,7 +1006,125 @@ a {
 }
 
 /* --------------------------------------------------------------------------
-   15. Preferences and small screens
+   15. Motion
+
+   The brief for every animation in this file: calm, short, and downward-
+   settling. No bounce, no spring, no overshoot, nothing that draws the eye
+   for its own sake. This is a tool people use on one of the worst weeks of
+   their lives, and motion that reads as playful reads as disrespectful.
+
+   Motion is also never the only carrier of meaning — everything animated here
+   is legible with animation switched off, which is what section 16 does for
+   anyone who has asked their system for less movement.
+   -------------------------------------------------------------------------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheen {
+  from {
+    background-position: -140% 0;
+  }
+  to {
+    background-position: 240% 0;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+/* Sections arrive in reading order. `both` matters: with reduced motion the
+   duration collapses to nothing and the fill is what leaves them visible. */
+.app__main > * {
+  animation: rise var(--rise) var(--ease) both;
+}
+
+.app__main > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.app__main > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.app__main > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.app__main > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+
+/* A piece animates in only when it is genuinely new — React keys are clip ids,
+   so cutting animates the new half and leaves the original alone. */
+.strip__item {
+  animation: settle 300ms var(--ease) both;
+}
+
+.piece {
+  transition: transform 160ms var(--ease), background-color 160ms var(--ease),
+    border-color 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+
+.piece:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.piece:active {
+  transform: translateY(0);
+}
+
+.piece__showing {
+  animation: breathe 2.6s ease-in-out infinite;
+}
+
+.preview__screen {
+  animation: settle 500ms var(--ease) both;
+}
+
+/* Movement on the progress bar, so a long export never looks frozen. */
+.progress__fill {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: sheen 1.6s linear infinite;
+}
+
+.failures,
+.save__done {
+  animation: rise 300ms var(--ease) both;
+}
+
+/* --------------------------------------------------------------------------
+   16. Preferences and small screens
    -------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,6 +3,7 @@ import { usePlayback } from '@/playback/usePlayback'
 import { useEditor } from '@/state/store'
 import { Announcer } from '@/ui/Announcer'
 import { Header } from '@/ui/Header'
+import { HowItWorks } from '@/ui/HowItWorks'
 import { ImportFailures } from '@/ui/ImportFailures'
 import { ImportZone } from '@/ui/ImportZone'
 import { MomentActions } from '@/ui/MomentActions'
@@ -46,7 +47,10 @@ export default function App() {
             <SavePanel />
           </>
         ) : (
-          <ImportZone variant="hero" />
+          <>
+            <ImportZone variant="hero" />
+            <HowItWorks />
+          </>
         )}
       </main>
 

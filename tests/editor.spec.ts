@@ -61,6 +61,56 @@ test.describe('accessibility guarantees', () => {
     await importVideo(page, await makeTestVideo(page))
     await expect(page.getByRole('slider', { name: /position in the film/i })).toBeVisible()
   })
+
+  test('content is still visible with reduced motion', async ({ page }) => {
+    // Sections animate in from opacity 0. If the reduced-motion rules ever
+    // drop `animation-fill-mode: both`, the page renders permanently blank
+    // for anyone who has asked their system for less movement.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.reload()
+
+    const dropzone = page.getByRole('heading', { name: /start with your videos/i })
+    await expect(dropzone).toBeVisible()
+    expect(await dropzone.evaluate((el) => getComputedStyle(el.closest('section')!).opacity)).toBe('1')
+  })
+})
+
+test.describe('light and dark', () => {
+  test('starts dark, switches to light, and remembers the choice', async ({ page }) => {
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+
+    await page.getByRole('button', { name: /switch to the light screen/i }).click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+
+    // The inline script in index.html must pick the saved choice back up
+    // before first paint, or the page flashes the wrong colours on every load.
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  })
+
+  test('button targets and text size hold in the light theme too', async ({ page }) => {
+    await page.getByRole('button', { name: /switch to the light screen/i }).click()
+    await importVideo(page, await makeTestVideo(page))
+    await expect(page.getByRole('heading', { name: /your film, piece by piece/i })).toBeVisible()
+
+    const heights = await visibleButtonHeights(page)
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(MIN_TARGET_PX)
+
+    const size = await page.evaluate(() => getComputedStyle(document.body).fontSize)
+    expect(Number.parseFloat(size)).toBeGreaterThanOrEqual(20)
+  })
+})
+
+test('the example film gives you three pieces to practise on', async ({ page }) => {
+  await page.getByRole('button', { name: /try it with an example film/i }).click()
+
+  await expect(page.getByText(/there are 3 pieces/i)).toBeVisible({ timeout: 90_000 })
+  await expect(page.getByRole('button', { name: /piece 1 of 3/i })).toBeVisible()
+
+  // Generated, not shipped — so it has to be genuinely editable, not a picture.
+  await page.getByRole('slider', { name: /position in the film/i }).fill('2')
+  await page.getByRole('button', { name: /^cut here/i }).click()
+  await expect(page.getByText(/there are 4 pieces/i)).toBeVisible()
 })
 
 test.describe('editing', () => {

@@ -14,11 +14,15 @@ Part of [Saylavy](https://saylavy.com).
 ## What it does today
 
 - **Bring in videos and photographs** from the computer, by button or by dropping them on the page.
+- **Try it with an example film** — three throwaway clips, generated on the spot, so nobody has to
+  learn what "Cut here" does by pressing it on irreplaceable footage.
 - **Play the film** and move through it with a large, keyboard-operable position slider.
 - **Cut** a piece in two at the current moment.
 - **Trim** the beginning or end of any piece, either a second at a time or straight to the playhead.
 - **Reorder** pieces, and **remove** the ones that do not belong.
 - **Undo and redo** anything, always, from a button that is never hidden.
+- **Switch between the dark brand look and a lighter, easier-to-read one**, remembered between
+  visits.
 - **Save a finished MP4** to the computer.
 
 Everything runs in the browser. Nothing is uploaded. There is no server, no account, and no
@@ -93,7 +97,9 @@ src/
     time.ts        Frame snapping and the two duration formats
     constants.ts   Limits and defaults, all in one place
   media/         Turning files into assets: probing, thumbnails, error messages
-  state/         Zustand store, undo history, and the memoised selectors
+    exampleFilm.ts Generates the three practice clips
+    encodeClip.ts  Shared canvas-to-MP4 encoder, used by the example and the tests
+  state/         Zustand store, undo history, theme, and the memoised selectors
   playback/      The preview: a rAF loop, hidden media elements, the compositor
   export/        Rendering the finished MP4, and the capability check
   ui/            React components. Plain language, large targets, no icon-only buttons.

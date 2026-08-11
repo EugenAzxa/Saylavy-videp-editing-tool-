@@ -4,6 +4,7 @@ import { announce } from '@/state/announce'
 import { useEditor } from '@/state/store'
 import { Button } from './Button'
 import { PlusIcon } from './Icon'
+import { TryExample } from './TryExample'
 
 const ACCEPT = [...ACCEPTED_VIDEO_TYPES, ...ACCEPTED_IMAGE_TYPES, 'video/*', 'image/*'].join(',')
 
@@ -115,6 +116,12 @@ export function ImportZone({ variant }: ImportZoneProps) {
         onClick={() => inputRef.current?.click()}
       />
       <p className="dropzone__hint">Or drag them onto this page.</p>
+
+      <div className="dropzone__example">
+        <span className="dropzone__or">Never done this before?</span>
+        <TryExample />
+      </div>
+
       <p className="dropzone__privacy">
         Your files stay on this computer. They are never uploaded, and nobody else can see them.
       </p>

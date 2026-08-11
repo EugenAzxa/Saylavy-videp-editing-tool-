@@ -101,8 +101,32 @@ keyboard support, screen-reader support and a generous hit area already correct.
 
 ### 11. System preferences are respected
 
-`prefers-reduced-motion` disables transitions. `forced-colors` mode is handled explicitly so the
-borders that carry meaning — selection, progress, button edges — survive a replaced palette.
+`prefers-reduced-motion` disables transitions and animations. `forced-colors` mode is handled
+explicitly so the borders that carry meaning — selection, progress, button edges — survive a
+replaced palette.
+
+There is a trap in this worth knowing about. Sections animate in from `opacity: 0`, and the
+reduced-motion rules collapse animation duration to nothing. The only thing that then leaves the
+content visible is `animation-fill-mode: both` on every entrance animation. Drop it and the page
+renders permanently blank for exactly the users who asked for less movement — so there is a test
+that loads the page under `prefers-reduced-motion: reduce` and asserts the content is visible.
+
+### 12. Motion is calm, and never carries meaning alone
+
+Every animation is a short fade or a small downward settle. No bounce, no spring, no overshoot,
+nothing that draws the eye for its own sake. People use this on one of the worst weeks of their
+lives, and motion that reads as playful reads as disrespectful.
+
+Nothing is communicated by movement alone. The pulsing "ON SCREEN NOW" badge is a written label
+first; the shimmer on the progress bar sits under a numeric percentage. Switch every animation off
+and the interface says exactly the same things.
+
+### 13. There is something safe to practise on
+
+"Try it with an example film" generates three throwaway clips. A first-time user is otherwise
+obliged to learn what "Cut here" does by pressing it on irreplaceable footage of someone who has
+died, which is a cruel way to introduce an editor. The example removes the risk from the first five
+minutes entirely.
 
 ---
 
@@ -112,32 +136,58 @@ The palette is Saylavy's own, lifted from the PrimeVue tokens published on sayla
 `#204BCC` primary ramp over slate neutrals, set in Open Sans. The brand blue is reserved for the
 action the user is most likely to want next.
 
+### Two themes, one bar
+
+Dark is the default, matching the marketing site. A toggle in the header switches to light and the
+choice persists.
+
+Both themes are held to the same standard. Dark is not a decorative mode that gets a pass — if
+anything it needs more care, because that is where contrast quietly slips.
+
+**Dark** (ratios against `--surface` #131C31, the card):
+
 | Pair | Ratio | Standard |
 | --- | --- | --- |
-| `--ink` #0F172A on `--paper` #F8FAFC | ~16.9:1 | AAA |
-| `--ink-soft` #475569 on `--surface` #FFFFFF | ~7.6:1 | AAA |
-| `--accent` #204BCC on `--surface` #FFFFFF | ~7.2:1 | AAA |
+| `--ink` #E8EDF7 on `--paper` #0B1120 | ~16.1:1 | AAA |
+| `--ink-soft` #9FB0CC on card | ~7.7:1 | AAA |
 | `--accent-ink` #FFFFFF on `--accent` #204BCC | ~7.2:1 | AAA |
-| `--danger` #991B1B on `--surface` #FFFFFF | ~8.4:1 | AAA |
-| `--line-strong` #64748B on `--surface` #FFFFFF | ~4.8:1 | AA (UI, needs 3:1) |
+| `--danger` #F87171 on card | ~6.1:1 | AA |
+| `--focus` #93B4FF on card | ~8.3:1 | AAA |
+| `--accent-edge` #5F85E1 on card | ~4.8:1 | AA (UI, needs 3:1) |
+| `--line-strong` #6B7C9E on card | ~4.0:1 | AA (UI, needs 3:1) |
 
-Two choices in there are deliberate departures from the obvious pick:
+**Light** (ratios against `--surface` #FFFFFF):
 
+| Pair | Ratio | Standard |
+| --- | --- | --- |
+| `--ink` #0F172A on `--paper` #EEF2FA | ~17.6:1 | AAA |
+| `--ink-soft` #475569 on white | ~7.6:1 | AAA |
+| `--accent` #204BCC on white | ~7.2:1 | AAA |
+| `--danger` #991B1B on white | ~8.4:1 | AAA |
+| `--line-strong` #64748B on white | ~4.8:1 | AA (UI, needs 3:1) |
+
+Four choices in there are deliberate departures from the obvious pick:
+
+- **Dark text is `#E8EDF7`, not white.** Pure white on near-black haloes badly for readers with
+  astigmatism or cataracts — a large share of this audience. Off-white keeps the contrast and drops
+  the glare.
 - **`--line-strong` is slate-500, not slate-400.** A border that carries meaning — the edge of a
   button — needs 3:1. Slate-400 manages only 2.6:1 on white.
-- **`--danger` is red-800, not red-600.** The lighter reds reach about 6.5:1, and the warning
-  attached to deleting part of someone's memorial film should clear AAA.
+- **`--danger` is red-800 in light mode, not red-600.** The lighter reds reach about 6.5:1, and the
+  warning attached to deleting part of someone's memorial film should clear AAA.
+- **The primary button gets a lighter border in dark mode** (`--accent-edge`). The brand blue fill
+  is only 2.4:1 against the dark card, so without an edge the button's *shape* disappears even
+  though its label is perfectly legible.
 
-### Why this runs light when saylavy.com runs dark
+### Why there is a toggle rather than a decision
 
-The marketing site sets `<html class="dark">`. This tool does not, and the divergence is
-intentional: dark backgrounds reduce legibility for readers with cataracts or reduced contrast
-sensitivity, which describes a large share of this audience, and the dark chrome that video editors
-usually wear is itself intimidating to someone who has never opened one.
+Dark backgrounds genuinely reduce legibility for readers with cataracts or reduced contrast
+sensitivity. That is a real cost, and it is not a reason to withhold the brand look from everyone
+else. So: dark by default, light one tap away, labelled "Light screen — easier to read" rather than
+with an icon nobody has to decode.
 
-These are still Saylavy's tokens — the design system defines both modes, and this uses the light
-surface set. If the brand ever mandates dark here, that is a decision to take with evidence from
-users over seventy, not a styling preference.
+The theme is applied by an inline script in `index.html` before first paint. If that ever moves
+into the bundle, the page will flash the wrong colours on every load.
 
 ---
 

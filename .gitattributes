@@ -1,0 +1,7 @@
+# Keep line endings consistent regardless of who clones this and on what.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.mp4 binary
+*.webm binary

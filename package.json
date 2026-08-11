@@ -1,0 +1,36 @@
+{
+  "name": "saylavy-video-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A private, in-browser video editor for families preparing memorial and funeral tribute videos. Part of Saylavy.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:unit": "playwright test tests/timeline.spec.ts",
+    "test:e2e": "playwright test tests/editor.spec.ts",
+    "test:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "mediabunny": "^1.53.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/dom-webcodecs": "^0.1.13",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11"
+  }
+}

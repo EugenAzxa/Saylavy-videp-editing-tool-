@@ -35,6 +35,27 @@ interface Outcome {
   art: ReactElement
 }
 
+/** Corner finder patterns, on the plaque's 2-unit module grid. */
+const FINDERS: Array<[number, number]> = [
+  [61, 49],
+  [79, 49],
+  [61, 67],
+]
+
+/** Data modules. Fixed rather than random, so the drawing never flickers. */
+const MODULES: Array<[number, number]> = [
+  [67, 49], [71, 49], [75, 49],
+  [61, 55], [67, 55], [73, 55], [81, 55],
+  [65, 57], [77, 57],
+  [69, 59], [83, 59],
+  [63, 61], [71, 61], [79, 61],
+  [75, 63],
+  [67, 65], [81, 65],
+  [73, 67],
+  [83, 69],
+  [69, 71], [77, 71],
+]
+
 /** A code on the memorial, so the film outlives the service. */
 function StoneArt() {
   return (
@@ -53,12 +74,18 @@ function StoneArt() {
 
       <rect x="58" y="46" width="30" height="30" rx="3" className="aw__plaque" />
       <g className="aw__code">
-        <rect x="62" y="50" width="7" height="7" />
-        <rect x="77" y="50" width="7" height="7" />
-        <rect x="62" y="65" width="7" height="7" />
-        <rect x="72" y="60" width="4" height="4" />
-        <rect x="79" y="65" width="4" height="4" />
-        <rect x="72" y="70" width="4" height="4" />
+        {/* Three finder patterns and a scatter of data modules on a 2-unit
+            grid. Fine modules read as a QR code; the chunky blocks this
+            replaced read as a chessboard. */}
+        {FINDERS.map(([x, y]) => (
+          <g key={`${x}-${y}`}>
+            <rect x={x} y={y} width="6" height="6" className="aw__finder" />
+            <rect x={x + 2} y={y + 2} width="2" height="2" />
+          </g>
+        ))}
+        {MODULES.map(([x, y]) => (
+          <rect key={`${x}-${y}`} x={x} y={y} width="2" height="2" />
+        ))}
       </g>
 
       {/* A scan sweeping the plaque, then the film beginning to play. */}

@@ -40,8 +40,12 @@ export function clearFrame(ctx: CanvasRenderingContext2D, width: number, height:
  * portrait phone video of someone's last birthday gets pillarboxed; it does
  * not get their face cut off to fill a widescreen frame.
  *
- * Returns false if the source had nothing to paint yet, so the caller can
- * decide whether to hold the previous frame or show black.
+ * Returns false — WITHOUT clearing — if the source has nothing to paint yet.
+ * That matters: a video element created a moment ago has no decoded frame, and
+ * blanking the canvas while it loads shows a black flash every time the user
+ * jumps to a piece they have not visited. Holding the previous frame until the
+ * new one is ready is what every video player does, and it is the difference
+ * between "loading" and "broken".
  */
 export function drawContained(
   ctx: CanvasRenderingContext2D,
@@ -50,8 +54,9 @@ export function drawContained(
   frameHeight: number,
 ): boolean {
   const size = sourceSize(source)
-  clearFrame(ctx, frameWidth, frameHeight)
   if (!size || size.width === 0 || size.height === 0) return false
+
+  clearFrame(ctx, frameWidth, frameHeight)
 
   const scale = Math.min(frameWidth / size.width, frameHeight / size.height)
   const width = size.width * scale

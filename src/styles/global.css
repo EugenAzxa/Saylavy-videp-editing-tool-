@@ -1318,19 +1318,30 @@ a {
   stroke-width: 2;
 }
 
+/* The plaque is a physical object, so its colours are fixed rather than
+   themed: a real code is dark modules on a light ground, and inverting that
+   in light mode would stop it reading as a QR code at all. */
 .aw__plaque {
-  fill: var(--shell);
+  fill: #e9eef8;
   stroke: var(--accent-edge);
   stroke-width: 1.5;
 }
 
 .aw__code rect {
-  fill: var(--ink-soft);
+  fill: #10151f;
+}
+
+/* More specific than `.aw__code rect`, which would otherwise fill the finder
+   rings solid and turn three corners into blocks. */
+.aw__code .aw__finder {
+  fill: none;
+  stroke: #10151f;
+  stroke-width: 2;
 }
 
 .aw__scan {
   fill: var(--accent-edge);
-  opacity: 0.85;
+  opacity: 0.5;
   animation: awScan 5.5s ease-in-out infinite;
 }
 
@@ -1392,7 +1403,7 @@ a {
 .aw__path {
   stroke: var(--hair-strong);
   stroke-width: 1.5;
-  stroke-dasharray: 4 5;
+  stroke-dasharray: 2 3;
 }
 
 .aw__cell {

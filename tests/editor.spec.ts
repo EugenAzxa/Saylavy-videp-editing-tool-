@@ -256,6 +256,57 @@ test.describe('text cards', () => {
   })
 })
 
+test.describe('sound', () => {
+  test("a piece's own sound can be switched off", async ({ page }) => {
+    await loadExample(page)
+    await page.locator('.tlclip').first().click()
+
+    const toggle = page.getByRole('button', { name: /this piece's own sound/i })
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.locator('.tlclip').first().locator('.tlclip__mark--mute')).toBeVisible()
+
+    await page.getByRole('button', { name: /^undo/i }).click()
+    await expect(page.locator('.tlclip').first().locator('.tlclip__mark--mute')).toHaveCount(0)
+  })
+
+  test('the music can be stopped under one piece', async ({ page }) => {
+    await loadExample(page)
+    await page.getByRole('button', { name: /stillness/i }).click()
+    await expect(page.locator('.tlmusic')).toBeVisible({ timeout: 120_000 })
+
+    await page.locator('.tlclip').nth(1).click()
+    await page.getByRole('button', { name: /music under this piece/i }).click()
+
+    // The break is drawn on the music bar, not merely recorded in state.
+    await expect(page.locator('.tlmusic__gap')).toHaveCount(1)
+  })
+
+  test('the music can be cut to start and stop where you choose', async ({ page }) => {
+    await loadExample(page)
+    await page.getByRole('button', { name: /stillness/i }).click()
+    await expect(page.locator('.tlmusic')).toBeVisible({ timeout: 120_000 })
+
+    const full = await page.locator('.tlmusic').boundingBox()
+
+    await page.getByRole('slider', { name: /position in the film/i }).fill('2')
+    await page.getByRole('button', { name: /^start here$/i }).click()
+    await page.getByRole('slider', { name: /position in the film/i }).fill('9')
+    await page.getByRole('button', { name: /^stop here$/i }).click()
+
+    await expect(page.getByText(/plays from 0:02 to 0:09/i)).toBeVisible()
+
+    const cut = await page.locator('.tlmusic').boundingBox()
+    expect(cut!.width).toBeLessThan(full!.width)
+    expect(cut!.x).toBeGreaterThan(full!.x)
+
+    await page.getByRole('button', { name: /play under the whole film/i }).click()
+    await expect(page.getByText(/plays from 0:00 to 0:12/i)).toBeVisible()
+  })
+})
+
 test('music can be added from the built-in pieces', async ({ page }) => {
   await loadExample(page)
 

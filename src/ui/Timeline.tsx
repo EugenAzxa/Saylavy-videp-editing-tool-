@@ -266,11 +266,12 @@ export function Timeline() {
                   }}
                 >
                   {isCard ? <span className="tlclip__title">{lines[0] ?? 'Text'}</span> : null}
-                  {!isCard && entry.clip.title ? (
-                    <span className="tlclip__mark" aria-hidden="true">
-                      T
-                    </span>
-                  ) : null}
+                  <span className="tlclip__marks" aria-hidden="true">
+                    {!isCard && entry.clip.title ? <span className="tlclip__mark">T</span> : null}
+                    {entry.clip.silent ? (
+                      <span className="tlclip__mark tlclip__mark--mute">✕</span>
+                    ) : null}
+                  </span>
                   <span className="tlclip__foot">
                     <span className="tlclip__name">
                       {isCard ? 'Text' : (asset?.name ?? 'Missing')}
@@ -280,6 +281,8 @@ export function Timeline() {
                   <span className="visually-hidden">
                     Piece {entry.index + 1} of {timeline.length}
                     {entry.clip.title && !isCard ? ', has words over it' : ''}
+                    {entry.clip.silent ? ', its own sound is off' : ''}
+                    {entry.clip.musicOff ? ', music stops here' : ''}
                   </span>
                 </button>
               )
@@ -296,9 +299,33 @@ export function Timeline() {
 
           <div className="tl__track tl__track--music" style={{ height: MUSIC_HEIGHT }}>
             {music && assets[music.assetId] ? (
-              <div className="tlmusic" style={{ width: duration * pixelsPerSecond - 2 }}>
+              <div
+                className="tlmusic"
+                style={{
+                  left: music.startAt * pixelsPerSecond,
+                  width: Math.max(
+                    ((music.endAt ?? duration) - music.startAt) * pixelsPerSecond - 2,
+                    8,
+                  ),
+                }}
+              >
                 <span className="tlmusic__wave" aria-hidden="true" />
                 <span className="tlmusic__name">{assets[music.assetId]?.name}</span>
+
+                {/* Gaps where a piece has asked for the music to stop. */}
+                {timeline
+                  .filter((entry) => entry.clip.musicOff)
+                  .map((entry) => (
+                    <span
+                      key={entry.clip.id}
+                      className="tlmusic__gap"
+                      style={{
+                        left: (entry.start - music.startAt) * pixelsPerSecond,
+                        width: entry.clip.duration * pixelsPerSecond,
+                      }}
+                      aria-hidden="true"
+                    />
+                  ))}
               </div>
             ) : (
               <span className="tl__empty">No music</span>

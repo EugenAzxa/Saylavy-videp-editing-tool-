@@ -89,10 +89,19 @@ export interface MusicSpec {
   assetId: Id
   /** 0 to 1. The film's own sound is not touched; this sits under it. */
   volume: number
-  /** Seconds of silence rising to `volume` at the start. */
+  /** Seconds of silence rising to `volume`, measured from `startAt`. */
   fadeIn: number
-  /** Seconds falling to silence at the end. */
+  /** Seconds falling to silence, measured back from where the music stops. */
   fadeOut: number
+  /**
+   * Seconds into the music FILE where playback begins — for skipping an
+   * introduction, or starting at the part the family wants.
+   */
+  inPoint: number
+  /** Seconds along the TIMELINE where the music comes in. */
+  startAt: number
+  /** Seconds along the timeline where it stops. Null means "run to the end". */
+  endAt: number | null
 }
 
 export type TrackKind = 'video' | 'audio'
@@ -126,6 +135,16 @@ export interface Clip {
    * makes it a text card. Optional otherwise, where it becomes an overlay.
    */
   title?: TitleSpec
+  /**
+   * The clip's OWN sound is off. For wind, traffic, or whoever was holding
+   * the camera talking over the moment.
+   */
+  silent?: boolean
+  /**
+   * The music bed is silenced while this clip is on screen — so a piece where
+   * somebody speaks can be heard without a piano underneath it.
+   */
+  musicOff?: boolean
 }
 
 export interface Project {

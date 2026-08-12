@@ -34,6 +34,7 @@ import {
   getFirstEncodableVideoCodec,
 } from 'mediabunny'
 import { OUTPUT_CHANNELS, OUTPUT_SAMPLE_RATE } from '@/core/constants'
+import { clamp } from '@/core/time'
 import { layoutTrack, projectDuration } from '@/core/timeline'
 import type { Id, MediaAsset, Project, TimedClip } from '@/core/types'
 import { clearFrame, drawContained, drawTextOver, drawTitle } from '@/playback/compositor'
@@ -284,7 +285,8 @@ async function mixAudio(
   signal: AbortSignal | undefined,
 ): Promise<AudioBuffer | null> {
   const audible = timeline.filter(
-    (entry) => entry.clip.assetId !== null && assets[entry.clip.assetId]?.hasAudio,
+    (entry) =>
+      !entry.clip.silent && entry.clip.assetId !== null && assets[entry.clip.assetId]?.hasAudio,
   )
   const music = project.music ? assets[project.music.assetId] : undefined
   if (audible.length === 0 && !music) return null
@@ -335,23 +337,49 @@ async function mixAudio(
   if (project.music && music) {
     const buffer = await bufferFor(music)
     if (buffer) {
-      const { volume, fadeIn, fadeOut } = project.music
-      const rise = Math.min(fadeIn, total / 2)
-      const fall = Math.min(fadeOut, total / 2)
+      const { volume, fadeIn, fadeOut, inPoint, startAt } = project.music
+      const from = clamp(startAt, 0, total)
+      const to = clamp(project.music.endAt ?? total, from, total)
+      const span = Math.min(to - from, Math.max(0, buffer.duration - inPoint))
 
-      const gain = ctx.createGain()
-      gain.gain.setValueAtTime(0, 0)
-      gain.gain.linearRampToValueAtTime(volume, rise)
-      gain.gain.setValueAtTime(volume, Math.max(rise, total - fall))
-      gain.gain.linearRampToValueAtTime(0, total)
-      gain.connect(ctx.destination)
+      if (span > 0.01) {
+        // Fades sit inside the music's own span, not the film's, and are
+        // clamped so that on a very short cue they meet rather than overlap.
+        const rise = Math.min(fadeIn, span / 2)
+        const fall = Math.min(fadeOut, span / 2)
 
-      const node = ctx.createBufferSource()
-      node.buffer = buffer
-      node.connect(gain)
-      // Trimmed to the film. A piece longer than the film simply stops.
-      node.start(0, 0, Math.min(total, buffer.duration))
-      scheduled += 1
+        const gain = ctx.createGain()
+        gain.gain.setValueAtTime(0, from)
+        gain.gain.linearRampToValueAtTime(volume, from + rise)
+        gain.gain.setValueAtTime(volume, from + span - fall)
+        gain.gain.linearRampToValueAtTime(0, from + span)
+
+        // A second stage that drops the music to nothing across any piece
+        // marked `musicOff`. Kept separate from the fade envelope so the two
+        // cannot fight over the same automation timeline. The 40ms ramps are
+        // there because an instant gain change is an audible click.
+        const gate = ctx.createGain()
+        gate.gain.setValueAtTime(1, 0)
+        for (const entry of timeline) {
+          if (!entry.clip.musicOff) continue
+          const openAt = Math.max(entry.start, from)
+          const shutAt = Math.min(entry.end, from + span)
+          if (shutAt <= openAt) continue
+
+          gate.gain.setValueAtTime(1, Math.max(0, openAt - 0.04))
+          gate.gain.linearRampToValueAtTime(0, openAt)
+          gate.gain.setValueAtTime(0, shutAt)
+          gate.gain.linearRampToValueAtTime(1, Math.min(total, shutAt + 0.04))
+        }
+
+        gain.connect(gate).connect(ctx.destination)
+
+        const node = ctx.createBufferSource()
+        node.buffer = buffer
+        node.connect(gain)
+        node.start(from, inPoint, span)
+        scheduled += 1
+      }
     }
   }
 

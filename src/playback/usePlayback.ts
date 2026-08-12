@@ -15,7 +15,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { clamp } from '@/core/time'
 import { clipAtTime, layoutTrack, projectDuration, sourceTimeAt } from '@/core/timeline'
-import type { Id, MediaAsset, Project } from '@/core/types'
+import type { Id, MediaAsset, Project, TimedClip } from '@/core/types'
 import { MAIN_TRACK_ID, useEditor } from '@/state/store'
 import { clearFrame, drawContained, drawTextOver, drawTitle } from './compositor'
 import { MediaPool } from './MediaPool'
@@ -50,11 +50,11 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
       }
 
       const timeline = layoutTrack(project, MAIN_TRACK_ID)
-      const entry = clipAtTime(timeline, playhead)
+      const entry: TimedClip | null = clipAtTime(timeline, playhead)
       const asset = entry && entry.clip.assetId !== null ? assets[entry.clip.assetId] : undefined
       const total = projectDuration(project)
 
-      driveMusic(pool, project, assets, playhead, total, isPlaying)
+      driveMusic(pool, project, assets, playhead, total, isPlaying, entry?.clip.musicOff === true)
 
       if (!entry || (entry.clip.assetId !== null && !asset)) {
         pool.pauseAll()
@@ -98,6 +98,9 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
       if (asset.kind === 'video') {
         const video = pool.getVideo(asset)
         const wanted = sourceTimeAt(entry, playhead)
+        // A muted piece must be silent in the preview exactly as it will be in
+        // the file, where `mixAudio()` leaves it out of the mix entirely.
+        video.muted = entry.clip.silent === true
 
         if (isPlaying) {
           const isNewClip = activeClipRef.current !== entry.clip.id
@@ -107,8 +110,8 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
             activeClipRef.current = entry.clip.id
             void video.play().catch(() => state.pause())
           } else if (video.paused) {
-            void video.play().catch(() => state.pause())
-          }
+          void video.play().catch(() => state.pause())
+        }
 
           const derived = entry.start + (video.currentTime - entry.clip.inPoint)
 
@@ -249,6 +252,7 @@ function driveMusic(
   playhead: number,
   total: number,
   isPlaying: boolean,
+  gated: boolean,
 ): void {
   const music = project.music
   const asset = music ? assets[music.assetId] : undefined
@@ -261,28 +265,44 @@ function driveMusic(
   const audio = pool.getAudio(asset)
   pool.pauseMusicExcept(asset.id)
 
-  const rise = Math.min(music.fadeIn, total / 2)
-  const fall = Math.min(music.fadeOut, total / 2)
-  const up = rise > 0 ? Math.min(1, playhead / rise) : 1
-  const down = fall > 0 ? Math.min(1, (total - playhead) / fall) : 1
+  // The music's own span on the timeline, which may be shorter than the film.
+  const from = clamp(music.startAt, 0, total)
+  const to = clamp(music.endAt ?? total, from, total)
+  const inside = playhead >= from && playhead < to
+
+  if (!inside || gated) {
+    if (!audio.paused) audio.pause()
+    return
+  }
+
+  // The same envelope `mixAudio()` renders, so the fades are heard while
+  // scrubbing exactly as they will be in the file.
+  const span = to - from
+  const rise = Math.min(music.fadeIn, span / 2)
+  const fall = Math.min(music.fadeOut, span / 2)
+  const since = playhead - from
+  const up = rise > 0 ? Math.min(1, since / rise) : 1
+  const down = fall > 0 ? Math.min(1, (span - since) / fall) : 1
   audio.volume = clamp(music.volume * Math.min(up, down), 0, 1)
+
+  const wanted = music.inPoint + since
 
   if (!isPlaying) {
     if (!audio.paused) audio.pause()
-    if (Math.abs(audio.currentTime - playhead) > SEEK_EPSILON) {
-      audio.currentTime = Math.min(playhead, audio.duration || playhead)
+    if (Math.abs(audio.currentTime - wanted) > SEEK_EPSILON) {
+      audio.currentTime = Math.min(wanted, audio.duration || wanted)
     }
     return
   }
 
-  // Music shorter than the film simply stops, matching the export.
-  if (audio.duration && playhead >= audio.duration) {
+  // Music shorter than its span simply stops, matching the export.
+  if (audio.duration && wanted >= audio.duration) {
     if (!audio.paused) audio.pause()
     return
   }
 
-  if (Math.abs(audio.currentTime - playhead) > RESYNC_THRESHOLD) {
-    audio.currentTime = playhead
+  if (Math.abs(audio.currentTime - wanted) > RESYNC_THRESHOLD) {
+    audio.currentTime = wanted
   }
   if (audio.paused) void audio.play().catch(() => undefined)
 }

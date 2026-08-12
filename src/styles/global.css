@@ -727,6 +727,79 @@ a {
   border: 2px solid var(--panel);
 }
 
+.itoggles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itoggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--target);
+  padding: 0 10px;
+  background: var(--raised);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+}
+
+.itoggle:disabled {
+  cursor: not-allowed;
+  color: var(--ink-disabled);
+  border-style: dashed;
+  background: transparent;
+}
+
+.itoggle__track {
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--shell);
+  border: 1px solid var(--hair-strong);
+  position: relative;
+  transition: background-color 0.14s var(--ease), border-color 0.14s var(--ease);
+}
+
+.itoggle__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  transition: transform 0.14s var(--ease), background-color 0.14s var(--ease);
+}
+
+.itoggle--on .itoggle__track {
+  background: var(--accent);
+  border-color: var(--accent-edge);
+}
+
+.itoggle--on .itoggle__knob {
+  transform: translateX(14px);
+  background: #fff;
+}
+
+.itoggle__text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+/* The word "On"/"Off" is written out, so the switch never depends on the
+   colour of its track to be understood. */
+.itoggle__state {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
 .ibeds {
   display: flex;
   flex-direction: column;
@@ -945,10 +1018,15 @@ a {
 
 /* A "T" on footage that has words over it. The inspector says so in full; this
    is only so the timeline is scannable. */
-.tlclip__mark {
+.tlclip__marks {
   position: absolute;
   top: 4px;
   left: 4px;
+  display: flex;
+  gap: 3px;
+}
+
+.tlclip__mark {
   width: 18px;
   height: 18px;
   display: grid;
@@ -958,6 +1036,10 @@ a {
   color: #fff;
   font-size: 0.66rem;
   font-weight: 700;
+}
+
+.tlclip__mark--mute {
+  background: rgba(160, 22, 30, 0.85);
 }
 
 /* Where the piece will land if released now. */
@@ -1026,9 +1108,9 @@ a {
 }
 
 .tlmusic {
-  position: relative;
+  position: absolute;
+  top: 3px;
   height: calc(100% - 6px);
-  margin: 3px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1060,6 +1142,21 @@ a {
     #000 3px 5px,
     transparent 5px 9px
   );
+}
+
+/* Where a piece has switched the music off. Hatched rather than merely
+   darker, so it is not colour alone that says "nothing plays here". */
+.tlmusic__gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(8, 11, 18, 0.85) 0 5px,
+    rgba(8, 11, 18, 0.55) 5px 10px
+  );
+  border-left: 1px solid var(--accent-edge);
+  border-right: 1px solid var(--accent-edge);
 }
 
 .tlmusic__name {

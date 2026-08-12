@@ -53,7 +53,7 @@ function createProject(): Project {
 }
 
 /** Sensible starting point for music: quiet enough to sit under speech. */
-const DEFAULT_MUSIC = { volume: 0.35, fadeIn: 2, fadeOut: 3 }
+const DEFAULT_MUSIC = { volume: 0.35, fadeIn: 2, fadeOut: 3, inPoint: 0, startAt: 0, endAt: null }
 
 export interface EditorState {
   project: Project
@@ -95,6 +95,7 @@ export interface EditorState {
   addMusic: (file: File) => Promise<void>
   removeMusic: () => void
   setMusicSettings: (settings: Partial<Omit<MusicSpec, 'assetId'>>) => void
+  toggleClipSound: (clipId: Id, which: 'own' | 'music') => void
 
   // -- edits ---------------------------------------------------------------
   cutAtPlayhead: () => void
@@ -291,6 +292,21 @@ export const useEditor = create<EditorState>((set, get) => {
       const state = get()
       if (!state.project.music) return
       commit({ ...state.project, music: null })
+    },
+
+    /** Turn a piece's own sound, or the music under it, on or off. */
+    toggleClipSound(clipId, which) {
+      const project = get().project
+      const clip = project.clips.find((candidate) => candidate.id === clipId)
+      if (!clip) return
+
+      const key = which === 'own' ? 'silent' : 'musicOff'
+      commit({
+        ...project,
+        clips: project.clips.map((candidate) =>
+          candidate.id === clipId ? { ...candidate, [key]: !candidate[key] } : candidate,
+        ),
+      })
     },
 
     setMusicSettings(settings) {

@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
 import { MIN_CLIP_DURATION } from '@/core/constants'
-import { describeDuration, formatLength } from '@/core/time'
+import { describeDuration, formatDuration, formatLength } from '@/core/time'
 import { FONTS, MAX_TITLE_LINES, TITLE_STYLES } from '@/core/titles'
 import type { TimedClip, TitleSpec } from '@/core/types'
 import { MUSIC_BEDS, renderMusicBed } from '@/media/music'
 import { announce } from '@/state/announce'
-import { useSelectedPiece } from '@/state/selectors'
+import { useDuration, useSelectedPiece } from '@/state/selectors'
 import { useEditor } from '@/state/store'
 import { Button } from './Button'
 import { MusicIcon, TextIcon, TrashIcon } from './Icon'
@@ -52,6 +52,8 @@ const TRIM_STEP = 1
 function ClipSection({ entry }: { entry: TimedClip }) {
   const assets = useEditor((state) => state.assets)
   const trimSelected = useEditor((state) => state.trimSelected)
+  const toggleClipSound = useEditor((state) => state.toggleClipSound)
+  const hasMusic = useEditor((state) => state.project.music !== null)
   const { clip, index } = entry
   const asset = clip.assetId === null ? undefined : assets[clip.assetId]
 
@@ -106,7 +108,71 @@ function ClipSection({ entry }: { entry: TimedClip }) {
       </div>
 
       <p className="ipanel__note">This piece runs for {describeDuration(clip.duration)}.</p>
+
+      <h3 className="ipanel__label">Sound</h3>
+      <div className="itoggles">
+        <Toggle
+          label="This piece's own sound"
+          on={!clip.silent}
+          disabled={!asset?.hasAudio}
+          hint={asset?.hasAudio ? undefined : 'This piece has no sound of its own'}
+          onChange={() => {
+            toggleClipSound(clip.id, 'own')
+            announce(clip.silent ? "This piece's sound is on." : "This piece's sound is off.")
+          }}
+        />
+        <Toggle
+          label="Music under this piece"
+          on={!clip.musicOff}
+          disabled={!hasMusic}
+          hint={hasMusic ? undefined : 'No music has been added yet'}
+          onChange={() => {
+            toggleClipSound(clip.id, 'music')
+            announce(clip.musicOff ? 'Music plays here.' : 'Music stops here.')
+          }}
+        />
+      </div>
     </section>
+  )
+}
+
+/**
+ * A labelled on/off switch.
+ *
+ * `aria-pressed` rather than a checkbox because these turn something on and
+ * off immediately rather than recording a choice to be submitted. The state
+ * is written out in words next to the label, so it never rests on the colour
+ * of a track alone.
+ */
+function Toggle({
+  label,
+  on,
+  disabled,
+  hint,
+  onChange,
+}: {
+  label: string
+  on: boolean
+  disabled?: boolean
+  hint?: string
+  onChange: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`itoggle${on && !disabled ? ' itoggle--on' : ''}`}
+      aria-pressed={on && !disabled}
+      disabled={disabled}
+      onClick={onChange}
+    >
+      <span className="itoggle__track" aria-hidden="true">
+        <span className="itoggle__knob" />
+      </span>
+      <span className="itoggle__text">
+        <span>{label}</span>
+        <span className="itoggle__state">{hint ?? (on && !disabled ? 'On' : 'Off')}</span>
+      </span>
+    </button>
   )
 }
 
@@ -309,6 +375,9 @@ function MusicSection() {
   const removeMusic = useEditor((state) => state.removeMusic)
   const setMusicSettings = useEditor((state) => state.setMusicSettings)
 
+  const playhead = useEditor((state) => state.playhead)
+  const duration = useDuration()
+
   const picker = useRef<HTMLInputElement>(null)
   const [making, setMaking] = useState<string | null>(null)
 
@@ -393,6 +462,56 @@ function MusicSection() {
               onChange={(event) => setMusicSettings({ fadeOut: Number(event.target.value) })}
             />
           </label>
+
+          <h3 className="ipanel__label">Cut the music</h3>
+          <p className="ipanel__note">
+            Plays from {formatDuration(music.startAt)} to{' '}
+            {formatDuration(music.endAt ?? duration)}, starting{' '}
+            {formatDuration(music.inPoint)} into the track.
+          </p>
+          <div className="ipanel__pair">
+            <Button
+              label="Start here"
+              size="compact"
+              onClick={() => {
+                setMusicSettings({ startAt: Math.min(playhead, (music.endAt ?? duration) - 0.5) })
+                announce(`Music now starts at ${formatDuration(playhead)}.`)
+              }}
+            />
+            <Button
+              label="Stop here"
+              size="compact"
+              onClick={() => {
+                setMusicSettings({ endAt: Math.max(playhead, music.startAt + 0.5) })
+                announce(`Music now stops at ${formatDuration(playhead)}.`)
+              }}
+            />
+          </div>
+
+          <label className="islider" htmlFor="music-in">
+            <span>
+              Skip the first <b>{music.inPoint.toFixed(0)}s</b> of the track
+            </span>
+            <input
+              id="music-in"
+              type="range"
+              min={0}
+              max={Math.max(0, Math.floor((track.duration || 0) - 1))}
+              step={1}
+              value={music.inPoint}
+              onChange={(event) => setMusicSettings({ inPoint: Number(event.target.value) })}
+            />
+          </label>
+
+          <Button
+            label="Play under the whole film"
+            size="compact"
+            disabled={music.startAt === 0 && music.endAt === null}
+            onClick={() => {
+              setMusicSettings({ startAt: 0, endAt: null })
+              announce('Music runs under the whole film again.')
+            }}
+          />
 
           <Button
             label="Remove music"

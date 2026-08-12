@@ -169,19 +169,22 @@ function TextOverSection({ entry }: { entry: TimedClip }) {
       ))}
 
       <h3 className="ipanel__label">Where it sits</h3>
-      <div className="ipanel__pair">
-        <Button
-          label="Lower"
-          size="compact"
-          disabled={title.placement === 'bottom'}
-          onClick={() => change({ placement: 'bottom' })}
-        />
-        <Button
-          label="Centred"
-          size="compact"
-          disabled={title.placement === 'centre'}
-          onClick={() => change({ placement: 'centre' })}
-        />
+      <div className="ipanel__trio">
+        {(
+          [
+            ['top', 'Top'],
+            ['centre', 'Middle'],
+            ['bottom', 'Bottom'],
+          ] as const
+        ).map(([placement, label]) => (
+          <Button
+            key={placement}
+            label={label}
+            size="compact"
+            disabled={title.placement === placement}
+            onClick={() => change({ placement })}
+          />
+        ))}
       </div>
 
       <h3 className="ipanel__label">Lettering</h3>

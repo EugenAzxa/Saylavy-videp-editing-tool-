@@ -104,21 +104,27 @@ export function drawTextOver(
   const lines = visibleLines(title)
   if (lines.length === 0) return
 
-  const centred = title.placement === 'centre'
-  const anchor = centred ? frameHeight / 2 : frameHeight * 0.8
-
-  if (centred) {
+  // The scrim always runs from the frame edge the words sit against, so it
+  // reads as a natural darkening rather than a band floating in the picture.
+  if (title.placement === 'centre') {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.38)'
     ctx.fillRect(0, 0, frameWidth, frameHeight)
-  } else {
-    const scrim = ctx.createLinearGradient(0, frameHeight * 0.52, 0, frameHeight)
-    scrim.addColorStop(0, 'rgba(0, 0, 0, 0)')
-    scrim.addColorStop(1, 'rgba(0, 0, 0, 0.78)')
-    ctx.fillStyle = scrim
-    ctx.fillRect(0, frameHeight * 0.52, frameWidth, frameHeight * 0.48)
+    drawWords(ctx, title, frameWidth, frameHeight, frameHeight / 2, 1)
+    return
   }
 
-  drawWords(ctx, title, frameWidth, frameHeight, anchor, centred ? 1 : 0.72)
+  const fromTop = title.placement === 'top'
+  const band = frameHeight * 0.48
+  const scrim = fromTop
+    ? ctx.createLinearGradient(0, 0, 0, band)
+    : ctx.createLinearGradient(0, frameHeight - band, 0, frameHeight)
+
+  scrim.addColorStop(0, fromTop ? 'rgba(0, 0, 0, 0.78)' : 'rgba(0, 0, 0, 0)')
+  scrim.addColorStop(1, fromTop ? 'rgba(0, 0, 0, 0)' : 'rgba(0, 0, 0, 0.78)')
+  ctx.fillStyle = scrim
+  ctx.fillRect(0, fromTop ? 0 : frameHeight - band, frameWidth, band)
+
+  drawWords(ctx, title, frameWidth, frameHeight, frameHeight * (fromTop ? 0.2 : 0.8), 0.72)
 }
 
 /** Shared text layout, so a card and an overlay set type identically. */

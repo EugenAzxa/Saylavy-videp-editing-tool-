@@ -50,10 +50,12 @@ export interface MediaAsset {
 export type TextPlacement =
   /** Fills the frame on its own. The only option when there is no footage. */
   | 'card'
-  /** Over the footage, low down — the usual place for a name and dates. */
-  | 'bottom'
+  /** Over the footage, near the top. */
+  | 'top'
   /** Over the footage, centred. */
   | 'centre'
+  /** Over the footage, low down — the usual place for a name and dates. */
+  | 'bottom'
 
 /**
  * Words on a clip. Lives on the clip itself — there is no file behind it.

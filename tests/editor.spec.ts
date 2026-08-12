@@ -235,6 +235,13 @@ test.describe('text cards', () => {
     await expect(page.locator('.tlclip').first()).not.toHaveClass(/tlclip--text/)
     await expect(page.locator('.tlclip').first().locator('.tlclip__mark')).toBeVisible()
 
+    // Words can sit at any of the three heights over the picture.
+    for (const where of ['Top', 'Middle', 'Bottom']) {
+      const button = page.getByRole('button', { name: new RegExp(`^${where}$`) })
+      await button.click()
+      await expect(button).toBeDisabled() // disabled means "this is the one in use"
+    }
+
     await page.getByRole('button', { name: /remove the words/i }).click()
     await expect(page.locator('.tlclip').first().locator('.tlclip__mark')).toHaveCount(0)
   })

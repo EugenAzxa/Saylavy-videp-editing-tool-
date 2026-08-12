@@ -8,7 +8,14 @@ import { defineConfig, devices } from '@playwright/test'
  *   npm run test:prod
  */
 
-const BASE_URL = 'http://localhost:4173'
+/**
+ * Point this at a real deployment to smoke-test the live site instead of a
+ * local build — the same three checks, against whatever is actually serving:
+ *
+ *   LIVE_URL=https://saylavy.pro npm run test:prod
+ */
+const LIVE_URL = process.env.LIVE_URL
+const BASE_URL = LIVE_URL ?? 'http://localhost:4173'
 
 export default defineConfig({
   testDir: './tests',
@@ -30,10 +37,15 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'npm run build && node scripts/serve-dist.mjs',
-    url: BASE_URL,
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  // Nothing to start when testing a deployment that is already running.
+  ...(LIVE_URL
+    ? {}
+    : {
+        webServer: {
+          command: 'npm run build && node scripts/serve-dist.mjs',
+          url: BASE_URL,
+          reuseExistingServer: false,
+          timeout: 120_000,
+        },
+      }),
 })

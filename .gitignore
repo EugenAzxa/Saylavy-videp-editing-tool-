@@ -3,6 +3,9 @@ dist/
 dist-ssr/
 *.local
 
+# Vercel CLI link metadata — machine-local, never committed
+.vercel/
+
 # Playwright
 /test-results/
 /playwright-report/

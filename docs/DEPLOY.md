@@ -1,5 +1,10 @@
 # Deploying to saylavy.pro
 
+**Live now:** <https://saylavy-video-editor.vercel.app>
+Project `saylavy-video-editor`, scope `eugenazxas-projects`. Publicly reachable,
+no deployment protection. `saylavy.pro` and `www.saylavy.pro` are attached to the
+project and are waiting on DNS — see [DNS at GoDaddy](#dns-at-godaddy).
+
 The app is a static bundle. There is no server, no database and no environment
 variables — the whole thing is `dist/`, and any static host will serve it.
 
@@ -49,36 +54,55 @@ use `vercel --prod --token=$VERCEL_TOKEN` instead.
 
 ## DNS at GoDaddy
 
-`saylavy.pro` currently uses GoDaddy nameservers (`ns39/ns40.domaincontrol.com`)
-and serves a placeholder page. Two records need to change, in GoDaddy's DNS
-manager:
+`saylavy.pro` uses GoDaddy nameservers (`ns39/ns40.domaincontrol.com`) and served
+a placeholder page. Both domains are already attached to the Vercel project, so
+this is the only remaining step. In GoDaddy's DNS manager:
 
 | Type | Name | Value |
 | --- | --- | --- |
-| `A` | `@` | **the IP Vercel shows you** |
+| `A` | `@` | `76.76.21.21` |
 | `CNAME` | `www` | `cname.vercel-dns.com` |
-
-**Take the apex `A` record value from Vercel's own domain screen, not from a
-blog post or from memory.** Vercel changed the address it hands out for apex
-domains, and a stale IP produces a domain that resolves, fails to get a
-certificate, and gives no useful error.
 
 Delete GoDaddy's existing parking/forwarding records for `@` and `www` first, or
 they will conflict.
+
+`76.76.21.21` is the value `vercel domains inspect saylavy.pro` returned for this
+account on 12 August 2026. **If the dashboard ever disagrees with it, the
+dashboard wins** — Vercel has been migrating apex domains onto a different
+address, and a stale IP produces a domain that resolves, fails to get a
+certificate, and gives no useful error. Re-run the inspect command rather than
+copying the number above:
+
+```bash
+vercel domains inspect saylavy.pro --scope eugenazxas-projects
+```
 
 Propagation is usually minutes. Vercel issues the certificate automatically once
 the records resolve; until then the domain will show a certificate warning,
 which is expected and not a misconfiguration.
 
+### Or hand DNS to Vercel entirely
+
+The alternative Vercel offers is switching the nameservers to
+`ns1.vercel-dns.com` / `ns2.vercel-dns.com`. That is fewer moving parts and
+Vercel manages the records for you, but it moves *all* DNS for `saylavy.pro` off
+GoDaddy — so any mail records on that domain would have to be recreated at
+Vercel. For a domain that only serves this app, it is the tidier option; for one
+that also carries email, the single `A` record above is safer.
+
 ---
 
 ## What to check once it is live
 
+Point the smoke test at the real deployment — same three checks, against
+whatever is actually serving:
+
 ```bash
-curl -sI https://saylavy.pro | grep -i "content-security-policy"
+LIVE_URL=https://saylavy.pro npm run test:prod
 ```
 
-Then, in a browser:
+That asserts the headers are present, the console is free of CSP violations,
+and a genuine MP4 comes out of the live site. Then, in a browser:
 
 - The page loads **dark** with no flash of light colours. A flash means
   `/theme.js` did not load — check it is being served and is not `defer`red.

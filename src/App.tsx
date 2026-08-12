@@ -1,65 +1,65 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePlayback } from '@/playback/usePlayback'
 import { useEditor } from '@/state/store'
 import { Announcer } from '@/ui/Announcer'
-import { Header } from '@/ui/Header'
-import { HowItWorks } from '@/ui/HowItWorks'
+import { EmptyState } from '@/ui/EmptyState'
+import { ExportDialog } from '@/ui/ExportDialog'
 import { ImportFailures } from '@/ui/ImportFailures'
-import { ImportZone } from '@/ui/ImportZone'
-import { MomentActions } from '@/ui/MomentActions'
-import { PiecePanel } from '@/ui/PiecePanel'
-import { PieceStrip } from '@/ui/PieceStrip'
-import { Preview } from '@/ui/Preview'
-import { SavePanel } from '@/ui/SavePanel'
+import { Inspector } from '@/ui/Inspector'
+import { Stage } from '@/ui/Stage'
+import { Timeline } from '@/ui/Timeline'
+import { Toolbar } from '@/ui/Toolbar'
+import { TopBar } from '@/ui/TopBar'
 import { useKeyboardShortcuts } from '@/ui/useKeyboardShortcuts'
 
 /**
- * One page, one column, top to bottom in the order the work happens: see the
- * film, change this moment, look at the pieces, change a piece, save it.
+ * The editor: a thin application bar, the picture beside its properties, the
+ * edit actions, and the timeline along the bottom.
  *
- * No tabs, no panels to discover, nothing behind a menu. The whole tool is
- * visible by scrolling, which means nobody has to remember where anything is.
+ * That arrangement is the one every editing tool has converged on, and the
+ * reason to follow it here is not fashion — it is that a fair number of people
+ * opening this will have seen one before, and nothing about a funeral is a
+ * good moment to be taught a novel layout.
  */
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   usePlayback(canvasRef)
   useKeyboardShortcuts()
 
-  const hasPieces = useEditor((state) => state.project.clips.length > 0)
+  const hasFilm = useEditor((state) => state.project.clips.length > 0)
+  const [exporting, setExporting] = useState(false)
+
+  // Nothing to export once the last piece is gone.
+  useEffect(() => {
+    if (!hasFilm) setExporting(false)
+  }, [hasFilm])
 
   return (
     <div className="app">
-      <a className="skip-link" href="#main">
+      <a className="skip-link" href="#work">
         Skip to the film
       </a>
 
-      <Header />
+      <TopBar onExport={() => setExporting(true)} />
 
-      <main className="app__main" id="main">
-        <ImportFailures />
+      <ImportFailures />
 
-        {hasPieces ? (
+      <main className="work" id="work">
+        {hasFilm ? (
           <>
-            <Preview canvasRef={canvasRef} />
-            <MomentActions />
-            <PieceStrip />
-            <PiecePanel />
-            <SavePanel />
+            <div className="work__upper">
+              <Stage canvasRef={canvasRef} />
+              <Inspector />
+            </div>
+            <Toolbar />
+            <Timeline />
           </>
         ) : (
-          <>
-            <ImportZone variant="hero" />
-            <HowItWorks />
-          </>
+          <EmptyState />
         )}
       </main>
 
-      <footer className="app__footer">
-        <p>
-          Made by <a href="https://saylavy.com">Saylavy</a>. Your videos and photographs never leave
-          this computer.
-        </p>
-      </footer>
+      {exporting ? <ExportDialog onClose={() => setExporting(false)} /> : null}
 
       <Announcer />
     </div>

@@ -42,7 +42,7 @@ test('nothing is blocked by the Content-Security-Policy', async ({ page }) => {
   page.on('pageerror', (error) => violations.push(`pageerror: ${error.message}`))
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: /start with your videos/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /make a film for the service/i })).toBeVisible()
 
   // The theme script is render-blocking and same-origin; if the CSP or the
   // path were wrong, the page would load unthemed.
@@ -54,18 +54,28 @@ test('nothing is blocked by the Content-Security-Policy', async ({ page }) => {
 test('a real film can be made and saved from the built bundle', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: /try it with an example film/i }).click()
-  await expect(page.getByText(/there are 3 pieces/i)).toBeVisible({ timeout: 120_000 })
+  await page.getByRole('button', { name: /try an example first/i }).click()
+  await expect(page.locator('.tlclip')).toHaveCount(3, { timeout: 120_000 })
 
   await page.getByRole('slider', { name: /position in the film/i }).fill('2')
   await page.getByRole('button', { name: /^cut here/i }).click()
-  await expect(page.getByText(/there are 4 pieces/i)).toBeVisible()
+  await expect(page.locator('.tlclip')).toHaveCount(4)
 
+  // Words, so the export exercises canvas text with a system font too.
+  await page.getByRole('button', { name: /^add text/i }).click()
+  await page.getByLabel('Line 1').fill('In loving memory')
+
+  await page.getByRole('button', { name: /export film/i }).click()
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: /save the film to this computer/i }).click()
-  await expect(page.locator('.save__done')).toBeVisible({ timeout: 150_000 })
+  await page.getByRole('button', { name: /export to this computer/i }).click()
+  await expect(page.locator('.save__done')).toBeVisible({ timeout: 180_000 })
 
   const bytes = readFileSync(await (await download).path())
   expect(bytes.byteLength).toBeGreaterThan(1024)
   expect(bytes.subarray(4, 8).toString('ascii')).toBe('ftyp')
+
+  // The share step is a demonstration and must keep saying so, in production
+  // above all — this is the build an investor or a family would actually see.
+  await expect(page.locator('.share__tag')).toHaveText(/preview/i)
+  await expect(page.getByText(/not live yet/i)).toBeVisible()
 })

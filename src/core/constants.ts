@@ -10,6 +10,9 @@ export const MIN_CLIP_DURATION = 0.5
 /** How long a still photo sits on screen by default, in seconds. */
 export const DEFAULT_IMAGE_DURATION = 5
 
+/** How long a new text card sits on screen. Long enough to read twice. */
+export const DEFAULT_TITLE_SECONDS = 4
+
 /** Default output settings for a new project. */
 export const DEFAULT_PROJECT = {
   width: 1920,

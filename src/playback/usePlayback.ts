@@ -13,10 +13,11 @@
  */
 
 import { useEffect, useRef, type RefObject } from 'react'
+import { clamp } from '@/core/time'
 import { clipAtTime, layoutTrack, projectDuration, sourceTimeAt } from '@/core/timeline'
-import type { Id } from '@/core/types'
+import type { Id, MediaAsset, Project } from '@/core/types'
 import { MAIN_TRACK_ID, useEditor } from '@/state/store'
-import { clearFrame, drawContained } from './compositor'
+import { clearFrame, drawContained, drawTitle } from './compositor'
 import { MediaPool } from './MediaPool'
 
 /** Tolerance for "the video is already where we want it", in seconds. */
@@ -50,20 +51,21 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
 
       const timeline = layoutTrack(project, MAIN_TRACK_ID)
       const entry = clipAtTime(timeline, playhead)
-      const asset = entry ? assets[entry.clip.assetId] : undefined
+      const asset = entry && entry.clip.assetId !== null ? assets[entry.clip.assetId] : undefined
+      const total = projectDuration(project)
 
-      if (!entry || !asset) {
+      driveMusic(pool, project, assets, playhead, total, isPlaying)
+
+      if (!entry || (entry.clip.assetId !== null && !asset)) {
         pool.pauseAll()
         activeClipRef.current = null
         clearFrame(ctx, project.width, project.height)
         return
       }
 
-      const total = projectDuration(project)
-
       /** Reached the end of the whole film: stop, and rest on the last frame. */
       function finish(): void {
-        pool.pauseAll()
+        pool.pauseEverything()
         activeClipRef.current = null
         state.pause()
         state.setPlayhead(total)
@@ -76,6 +78,21 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
           activeClipRef.current = null
           state.setPlayhead(end)
         }
+      }
+
+      // A text card: nothing to decode, so wall time drives the playhead.
+      if (!asset) {
+        pool.pauseAll()
+        activeClipRef.current = null
+        if (entry.clip.title) drawTitle(ctx, entry.clip.title, project.width, project.height)
+        else clearFrame(ctx, project.width, project.height)
+
+        if (isPlaying) {
+          const next = playhead + deltaSeconds
+          if (next >= entry.end - EDGE) advance(entry.end)
+          else state.setPlayhead(next)
+        }
+        return
       }
 
       if (asset.kind === 'video') {
@@ -116,7 +133,7 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
         return
       }
 
-      // Still photograph: nothing to decode, so wall time drives the playhead.
+      // Still photograph: nothing to decode either, so wall time drives it.
       pool.pauseAll()
       activeClipRef.current = null
       if (isPlaying) {
@@ -143,4 +160,58 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
       pool.dispose()
     }
   }, [canvasRef])
+}
+
+/**
+ * Keep the music bed in step with the playhead.
+ *
+ * The music runs from zero across the whole film, so unlike the video clips it
+ * is not driven by any one piece. Its gain is recomputed every frame from the
+ * fade settings, which means the fades are audible while scrubbing rather than
+ * only appearing in the exported file — it is the same envelope `mixAudio()`
+ * renders at export time, so what is heard here is what gets written out.
+ */
+function driveMusic(
+  pool: MediaPool,
+  project: Project,
+  assets: Readonly<Record<Id, MediaAsset>>,
+  playhead: number,
+  total: number,
+  isPlaying: boolean,
+): void {
+  const music = project.music
+  const asset = music ? assets[music.assetId] : undefined
+
+  if (!music || !asset) {
+    pool.pauseMusicExcept(null)
+    return
+  }
+
+  const audio = pool.getAudio(asset)
+  pool.pauseMusicExcept(asset.id)
+
+  const rise = Math.min(music.fadeIn, total / 2)
+  const fall = Math.min(music.fadeOut, total / 2)
+  const up = rise > 0 ? Math.min(1, playhead / rise) : 1
+  const down = fall > 0 ? Math.min(1, (total - playhead) / fall) : 1
+  audio.volume = clamp(music.volume * Math.min(up, down), 0, 1)
+
+  if (!isPlaying) {
+    if (!audio.paused) audio.pause()
+    if (Math.abs(audio.currentTime - playhead) > SEEK_EPSILON) {
+      audio.currentTime = Math.min(playhead, audio.duration || playhead)
+    }
+    return
+  }
+
+  // Music shorter than the film simply stops, matching the export.
+  if (audio.duration && playhead >= audio.duration) {
+    if (!audio.paused) audio.pause()
+    return
+  }
+
+  if (Math.abs(audio.currentTime - playhead) > RESYNC_THRESHOLD) {
+    audio.currentTime = playhead
+  }
+  if (audio.paused) void audio.play().catch(() => undefined)
 }

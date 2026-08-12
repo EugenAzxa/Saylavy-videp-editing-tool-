@@ -17,14 +17,18 @@ import {
   layoutTrack,
   nudgeClipOrder,
   projectDuration,
+  insertTitle,
   removeClip,
   reorderWithinTrack,
   splitAt,
   trimClip,
   trimEndToTime,
   trimStartToTime,
+  updateTitle,
 } from '@/core/timeline'
-import type { Id, MediaAsset, Project, TimedClip, TrimEdge } from '@/core/types'
+import { DEFAULT_TITLE_SECONDS } from '@/core/constants'
+import { newTitle } from '@/core/titles'
+import type { Id, MediaAsset, MusicSpec, Project, TimedClip, TitleSpec, TrimEdge } from '@/core/types'
 import type { MediaImportError } from '@/media/errors'
 import { importFiles, releaseAsset } from '@/media/import'
 import { emptyHistory, pushHistory, redo, undo, type History } from './history'
@@ -44,8 +48,12 @@ function createProject(): Project {
     ...DEFAULT_PROJECT,
     tracks: [{ id: MAIN_TRACK_ID, kind: 'video', name: 'Your film', muted: false }],
     clips: [],
+    music: null,
   }
 }
+
+/** Sensible starting point for music: quiet enough to sit under speech. */
+const DEFAULT_MUSIC = { volume: 0.35, fadeIn: 2, fadeOut: 3 }
 
 export interface EditorState {
   project: Project
@@ -75,6 +83,16 @@ export interface EditorState {
   // -- selection -----------------------------------------------------------
   select: (clipId: Id | null) => void
   selectAtPlayhead: () => void
+
+  // -- text cards ----------------------------------------------------------
+  addTitle: () => void
+  editTitle: (clipId: Id, title: TitleSpec) => void
+
+  // -- music ---------------------------------------------------------------
+  /** Import an audio file and lay it under the film. */
+  addMusic: (file: File) => Promise<void>
+  removeMusic: () => void
+  setMusicSettings: (settings: Partial<Omit<MusicSpec, 'assetId'>>) => void
 
   // -- edits ---------------------------------------------------------------
   cutAtPlayhead: () => void
@@ -136,11 +154,21 @@ export const useEditor = create<EditorState>((set, get) => {
         const { assets, failures } = await importFiles(files)
         const state = get()
 
+        // A dropped sound file is music, not a piece of the film. Routing it
+        // here means "drag an MP3 onto the page" does the obvious thing.
+        const sound = assets.filter((asset) => asset.kind === 'audio')
+        const pictures = assets.filter((asset) => asset.kind !== 'audio')
+
         // Everything imported in one drop becomes one undo step, so "undo"
         // after adding forty photos removes forty photos, not one.
         let next = state.project
-        for (const asset of assets) {
+        for (const asset of pictures) {
           next = appendAsset(next, asset, MAIN_TRACK_ID)
+        }
+
+        const lastSound = sound[sound.length - 1]
+        if (lastSound) {
+          next = { ...next, music: { assetId: lastSound.id, ...DEFAULT_MUSIC } }
         }
 
         const byId = { ...state.assets }
@@ -155,6 +183,87 @@ export const useEditor = create<EditorState>((set, get) => {
       } finally {
         set({ isImporting: false })
       }
+    },
+
+    // -- text cards --------------------------------------------------------
+
+    addTitle() {
+      const state = get()
+      // Drop it straight after whatever is selected, which is nearly always
+      // where it is wanted; otherwise at the end.
+      const selected = state.selectedClipId
+        ? state.timeline().find((entry) => entry.clip.id === state.selectedClipId)
+        : undefined
+
+      const before = state.project
+      const next = insertTitle(
+        before,
+        MAIN_TRACK_ID,
+        newTitle(),
+        DEFAULT_TITLE_SECONDS,
+        selected ? selected.index : null,
+      )
+      if (next === before) return
+
+      const added = next.clips.find((clip) => !before.clips.some((old) => old.id === clip.id))
+      // Move the playhead onto the new card, so the preview shows the thing
+      // the inspector has just started editing. Without this you type into a
+      // panel while looking at a different piece entirely.
+      const placed = added
+        ? layoutTrack(next, MAIN_TRACK_ID).find((candidate) => candidate.clip.id === added.id)
+        : undefined
+
+      set({
+        project: next,
+        history: pushHistory(state.history, before),
+        selectedClipId: added?.id ?? null,
+        playhead: placed ? placed.start : clamp(state.playhead, 0, projectDuration(next)),
+        isPlaying: false,
+      })
+    },
+
+    editTitle(clipId, title) {
+      commit(updateTitle(get().project, clipId, title))
+    },
+
+    // -- music -------------------------------------------------------------
+
+    async addMusic(file) {
+      set({ isImporting: true })
+      try {
+        const { assets, failures } = await importFiles([file])
+        const state = get()
+        const track = assets[0]
+
+        if (!track) {
+          set({ failures: [...state.failures, ...failures] })
+          return
+        }
+
+        set({
+          assets: { ...state.assets, [track.id]: track },
+          project: { ...state.project, music: { assetId: track.id, ...DEFAULT_MUSIC } },
+          history: pushHistory(state.history, state.project),
+          failures: [...state.failures, ...failures],
+        })
+      } finally {
+        set({ isImporting: false })
+      }
+    },
+
+    removeMusic() {
+      const state = get()
+      if (!state.project.music) return
+      commit({ ...state.project, music: null })
+    },
+
+    setMusicSettings(settings) {
+      const state = get()
+      const music = state.project.music
+      if (!music) return
+      // Volume and fade changes are continuous — a slider drag would otherwise
+      // push a hundred entries onto the undo stack — so they bypass history.
+      set({ project: { ...state.project, music: { ...music, ...settings } } })
     },
 
     dismissFailures() {

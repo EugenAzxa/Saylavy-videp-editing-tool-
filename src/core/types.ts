@@ -46,6 +46,36 @@ export interface MediaAsset {
   posterUrl: string | null
 }
 
+/** A text card. Lives on the clip itself — there is no file behind it. */
+export interface TitleSpec {
+  /** One to three lines. Blank lines are dropped at render time. */
+  lines: string[]
+  fontId: string
+  /** Text colour. */
+  color: string
+  /** Card background. */
+  background: string
+}
+
+/**
+ * Music laid under the whole film.
+ *
+ * Deliberately a single field on the project rather than a track of clips.
+ * Every memorial video wants one piece of music running underneath from start
+ * to finish, and modelling that as a track would mean relaxing the gapless
+ * invariant (see the file header) for a case nobody actually needs. When
+ * multiple cues are wanted, this becomes a track — see docs/ROADMAP.md.
+ */
+export interface MusicSpec {
+  assetId: Id
+  /** 0 to 1. The film's own sound is not touched; this sits under it. */
+  volume: number
+  /** Seconds of silence rising to `volume` at the start. */
+  fadeIn: number
+  /** Seconds falling to silence at the end. */
+  fadeOut: number
+}
+
 export type TrackKind = 'video' | 'audio'
 
 export interface Track {
@@ -65,12 +95,15 @@ export interface Track {
  */
 export interface Clip {
   id: Id
-  assetId: Id
+  /** The file this clip shows, or null when it is a text card. */
+  assetId: Id | null
   trackId: Id
   /** Seconds into the source asset where this clip starts. `>= 0`. */
   inPoint: number
   /** Seconds of source this clip shows. `inPoint + duration <= asset.duration`. */
   duration: number
+  /** Present exactly when `assetId` is null. */
+  title?: TitleSpec
 }
 
 export interface Project {
@@ -87,6 +120,8 @@ export interface Project {
    * single track, array order is timeline order.
    */
   clips: Clip[]
+  /** Music under the whole film, or null for none. */
+  music: MusicSpec | null
 }
 
 /** A clip with its computed timeline position. Produced by `layoutTrack()`. */

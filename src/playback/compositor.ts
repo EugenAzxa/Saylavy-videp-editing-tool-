@@ -6,6 +6,9 @@
  * made to how a frame is composed, it must be made here and nowhere else.
  */
 
+import { fontStack, visibleLines } from '@/core/titles'
+import type { TitleSpec } from '@/core/types'
+
 /** The colour behind letterboxed footage and on empty stretches of timeline. */
 export const BACKDROP = '#000000'
 
@@ -56,4 +59,59 @@ export function drawContained(
 
   ctx.drawImage(source, (frameWidth - width) / 2, (frameHeight - height) / 2, width, height)
   return true
+}
+
+/**
+ * Draw a text card.
+ *
+ * Sizes are fractions of the frame height, never fixed pixels, so a card looks
+ * identical in the 480px-wide preview and the 1080p export. Getting this wrong
+ * is the classic way a title looks right on screen and wrong in the file.
+ *
+ * The font stack is a system one (see `core/titles.ts`) precisely so that
+ * `fillText` can draw it synchronously — a webfont that has not finished
+ * loading falls back silently, and nobody notices until the family plays it.
+ */
+export function drawTitle(
+  ctx: CanvasRenderingContext2D,
+  title: TitleSpec,
+  frameWidth: number,
+  frameHeight: number,
+): void {
+  ctx.fillStyle = title.background
+  ctx.fillRect(0, 0, frameWidth, frameHeight)
+
+  const lines = visibleLines(title)
+  if (lines.length === 0) return
+
+  // The first line is the name or the sentiment and carries the weight; the
+  // rest are dates or a short quotation, and sit quieter beneath it.
+  const leadSize = frameHeight * 0.11
+  const restSize = frameHeight * 0.062
+  const gap = frameHeight * 0.035
+  const stack = fontStack(title.fontId)
+
+  const heights = lines.map((_, index) => (index === 0 ? leadSize : restSize))
+  const total = heights.reduce((sum, height) => sum + height, 0) + gap * (lines.length - 1)
+
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = title.color
+
+  let y = frameHeight / 2 - total / 2
+  lines.forEach((line, index) => {
+    const size = heights[index]!
+    y += size / 2
+    ctx.font = `${index === 0 ? '600' : '400'} ${Math.round(size)}px ${stack}`
+    ctx.fillText(line, frameWidth / 2, y, frameWidth * 0.86)
+    y += size / 2 + gap
+  })
+
+  // A hairline rule under the lead line, which reads as considered rather than
+  // as a default. Only when there is something beneath it to separate.
+  if (lines.length > 1) {
+    const ruleWidth = frameWidth * 0.14
+    const ruleY = frameHeight / 2 - total / 2 + leadSize + gap * 0.15
+    ctx.fillRect(frameWidth / 2 - ruleWidth / 2, ruleY, ruleWidth, Math.max(1, frameHeight * 0.0025))
+  }
 }

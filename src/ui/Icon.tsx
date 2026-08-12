@@ -145,6 +145,34 @@ export function TrimEndIcon({ size = 1 }: IconProps) {
   )
 }
 
+export function TextIcon({ size = 1 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M5 6.5V5h14v1.5" />
+      <path d="M12 5v14" />
+      <path d="M9 19h6" />
+    </svg>
+  )
+}
+
+export function MusicIcon({ size = 1 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M9 18V6l11-2v12" />
+      <circle cx="6.5" cy="18" r="2.5" />
+      <circle cx="17.5" cy="16" r="2.5" />
+    </svg>
+  )
+}
+
+export function CloseIcon({ size = 1 }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
+
 export function SunIcon({ size = 1 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

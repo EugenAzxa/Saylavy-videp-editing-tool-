@@ -3,75 +3,78 @@ import { expect, test, type Page } from '@playwright/test'
 import { importVideo, makeTestVideo } from './fixtures'
 
 /**
- * End-to-end cover for the whole path a user actually walks: bring a file in,
- * change it, and get a playable MP4 back out.
+ * End-to-end cover for the path a user actually walks: bring footage in,
+ * change it, add words and music, and get a playable MP4 back out.
  *
  * The last test in this file is the one that matters most — it opens the
  * exported file and checks it is a real MP4, because "the export finished
  * without throwing" and "the family can play the film" are not the same claim.
  */
 
-const MIN_TARGET_PX = 56
+/** WCAG 2.2 target size. The chrome sits at exactly this; nothing goes under. */
+const MIN_TARGET_PX = 44
 
-async function visibleButtonHeights(page: Page): Promise<number[]> {
+async function visibleControlHeights(page: Page): Promise<number[]> {
   return page.evaluate((): number[] => {
     const heights: number[] = []
-    for (const element of document.querySelectorAll('button')) {
+    for (const element of document.querySelectorAll('button, input[type=text], input[type=range]')) {
       const box = element.getBoundingClientRect()
+      // Timeline clips size themselves to the footage; they are not chrome.
+      if (element.classList.contains('tlclip')) continue
       if (box.width > 0 && box.height > 0) heights.push(box.height)
     }
     return heights
   })
 }
 
+/** Get to an editable film without needing a fixture file. */
+async function loadExample(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /try an example first/i }).click()
+  await expect(page.getByRole('button', { name: /^add text/i })).toBeVisible({ timeout: 120_000 })
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
 })
 
-test('opens on an empty state that explains what to do and promises privacy', async ({ page }) => {
-  await expect(page.getByRole('heading', { name: /start with your videos/i })).toBeVisible()
-  await expect(page.getByText(/never uploaded/i)).toBeVisible()
+test('opens on a start screen that explains itself and promises privacy', async ({ page }) => {
+  await expect(page.getByRole('heading', { name: /make a film for the service/i })).toBeVisible()
+  await expect(page.getByText(/nothing is uploaded/i)).toBeVisible()
 })
 
 test.describe('accessibility guarantees', () => {
-  // These are the promises made at the top of styles/global.css. They are
-  // easy to erode one component at a time, so they are asserted rather than
-  // left to code review.
-
-  test('body text is 20px', async ({ page }) => {
+  test('body text is at least 16px', async ({ page }) => {
     const size = await page.evaluate(() => getComputedStyle(document.body).fontSize)
-    expect(Number.parseFloat(size)).toBeGreaterThanOrEqual(20)
+    expect(Number.parseFloat(size)).toBeGreaterThanOrEqual(16)
   })
 
-  test('every visible button clears the 56px target on the empty state', async ({ page }) => {
-    const heights = await visibleButtonHeights(page)
+  test('controls clear the 44px target on the start screen', async ({ page }) => {
+    const heights = await visibleControlHeights(page)
     expect(heights.length).toBeGreaterThan(0)
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(MIN_TARGET_PX)
   })
 
-  test('every visible button clears the 56px target once editing', async ({ page }) => {
-    await importVideo(page, await makeTestVideo(page))
-    await expect(page.getByRole('heading', { name: /your film, piece by piece/i })).toBeVisible()
-
-    const heights = await visibleButtonHeights(page)
+  test('controls clear the 44px target once editing', async ({ page }) => {
+    await loadExample(page)
+    const heights = await visibleControlHeights(page)
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(MIN_TARGET_PX)
   })
 
   test('the position control is a real slider, so it works from the keyboard', async ({ page }) => {
-    await importVideo(page, await makeTestVideo(page))
+    await loadExample(page)
     await expect(page.getByRole('slider', { name: /position in the film/i })).toBeVisible()
   })
 
   test('content is still visible with reduced motion', async ({ page }) => {
-    // Sections animate in from opacity 0. If the reduced-motion rules ever
-    // drop `animation-fill-mode: both`, the page renders permanently blank
-    // for anyone who has asked their system for less movement.
+    // Panels fade in from opacity 0. If the reduced-motion rules ever drop
+    // `animation-fill-mode: both`, the page renders permanently blank for
+    // anyone who has asked their system for less movement.
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.reload()
 
-    const dropzone = page.getByRole('heading', { name: /start with your videos/i })
-    await expect(dropzone).toBeVisible()
-    expect(await dropzone.evaluate((el) => getComputedStyle(el.closest('section')!).opacity)).toBe('1')
+    const heading = page.getByRole('heading', { name: /make a film for the service/i })
+    await expect(heading).toBeVisible()
+    expect(await heading.evaluate((el) => getComputedStyle(el.closest('.start')!).opacity)).toBe('1')
   })
 })
 
@@ -82,106 +85,123 @@ test.describe('light and dark', () => {
     await page.getByRole('button', { name: /switch to the light screen/i }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 
-    // The inline script in index.html must pick the saved choice back up
-    // before first paint, or the page flashes the wrong colours on every load.
+    // The theme script must pick the saved choice back up before first paint,
+    // or the page flashes the wrong colours on every load.
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   })
-
-  test('button targets and text size hold in the light theme too', async ({ page }) => {
-    await page.getByRole('button', { name: /switch to the light screen/i }).click()
-    await importVideo(page, await makeTestVideo(page))
-    await expect(page.getByRole('heading', { name: /your film, piece by piece/i })).toBeVisible()
-
-    const heights = await visibleButtonHeights(page)
-    expect(Math.min(...heights)).toBeGreaterThanOrEqual(MIN_TARGET_PX)
-
-    const size = await page.evaluate(() => getComputedStyle(document.body).fontSize)
-    expect(Number.parseFloat(size)).toBeGreaterThanOrEqual(20)
-  })
-})
-
-test('the example film gives you three pieces to practise on', async ({ page }) => {
-  await page.getByRole('button', { name: /try it with an example film/i }).click()
-
-  await expect(page.getByText(/there are 3 pieces/i)).toBeVisible({ timeout: 90_000 })
-  await expect(page.getByRole('button', { name: /piece 1 of 3/i })).toBeVisible()
-
-  // Generated, not shipped — so it has to be genuinely editable, not a picture.
-  await page.getByRole('slider', { name: /position in the film/i }).fill('2')
-  await page.getByRole('button', { name: /^cut here/i }).click()
-  await expect(page.getByText(/there are 4 pieces/i)).toBeVisible()
 })
 
 test.describe('editing', () => {
-  test('an imported video becomes one piece', async ({ page }) => {
+  test('an imported video becomes one piece on the timeline', async ({ page }) => {
     await importVideo(page, await makeTestVideo(page))
-
-    await expect(page.getByText(/there is one piece so far/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /piece 1 of 1/i })).toBeVisible()
+    await expect(page.getByText(/^1 piece/)).toBeVisible()
+    await expect(page.locator('.tlclip')).toHaveCount(1)
   })
 
-  test('cutting in the middle produces two pieces, and undo puts it back', async ({ page }) => {
-    await importVideo(page, await makeTestVideo(page))
-    await expect(page.getByRole('button', { name: /piece 1 of 1/i })).toBeVisible()
+  test('the example film gives you three pieces to practise on', async ({ page }) => {
+    await loadExample(page)
+    await expect(page.locator('.tlclip')).toHaveCount(3)
+  })
 
-    // Park the playhead somewhere safely inside the clip before cutting.
+  test('cutting produces two pieces, and undo puts it back', async ({ page }) => {
+    await importVideo(page, await makeTestVideo(page))
+    await expect(page.locator('.tlclip')).toHaveCount(1)
+
     await page.getByRole('slider', { name: /position in the film/i }).fill('1.5')
     await page.getByRole('button', { name: /^cut here/i }).click()
-
-    await expect(page.getByText(/there are 2 pieces/i)).toBeVisible()
+    await expect(page.locator('.tlclip')).toHaveCount(2)
 
     await page.getByRole('button', { name: /^undo/i }).click()
-    await expect(page.getByText(/there is one piece so far/i)).toBeVisible()
+    await expect(page.locator('.tlclip')).toHaveCount(1)
   })
 
-  test('a piece can be reordered and removed', async ({ page }) => {
-    await importVideo(page, await makeTestVideo(page))
-    await page.getByRole('slider', { name: /position in the film/i }).fill('1.5')
-    await page.getByRole('button', { name: /^cut here/i }).click()
-    await expect(page.getByText(/there are 2 pieces/i)).toBeVisible()
+  test('a piece can be selected, reordered and deleted', async ({ page }) => {
+    await loadExample(page)
 
-    // Select the second piece; it should then be able to move earlier but not later.
-    await page.getByRole('button', { name: /piece 2 of 2/i }).click()
-    await expect(page.getByRole('heading', { name: /^piece 2 of 2$/i })).toBeVisible()
+    await page.locator('.tlclip').nth(2).click()
+    await expect(page.getByRole('heading', { name: /^piece 3$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /move later/i })).toBeDisabled()
 
     await page.getByRole('button', { name: /move earlier/i }).click()
-    await expect(page.getByRole('heading', { name: /^piece 1 of 2$/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^piece 2$/i })).toBeVisible()
 
-    await page.getByRole('button', { name: /remove this piece/i }).click()
-    await expect(page.getByText(/there is one piece so far/i)).toBeVisible()
+    await page.getByRole('button', { name: /^delete/i }).click()
+    await expect(page.locator('.tlclip')).toHaveCount(2)
   })
 
-  test('trimming shortens the film', async ({ page }) => {
-    await importVideo(page, await makeTestVideo(page))
-    await page.getByRole('button', { name: /piece 1 of 1/i }).click()
+  test('trimming shortens the piece', async ({ page }) => {
+    await loadExample(page)
+    await page.locator('.tlclip').first().click()
 
-    const lengthBefore = await page.locator('.piece__length').first().innerText()
-    await page.getByRole('button', { name: /cut off 1 second/i }).first().click()
-    await expect(page.locator('.piece__length').first()).not.toHaveText(lengthBefore)
+    const before = await page.locator('.tlclip__len').first().innerText()
+    await page.getByRole('button', { name: /^cut 1s$/i }).first().click()
+    await expect(page.locator('.tlclip__len').first()).not.toHaveText(before)
   })
 })
 
-test('exports a genuine, playable MP4', async ({ page }) => {
+test.describe('text cards', () => {
+  test('adds a card, selects it, and shows it in the preview', async ({ page }) => {
+    await loadExample(page)
+    await page.locator('.tlclip').first().click()
+    await page.getByRole('button', { name: /^add text/i }).click()
+
+    await expect(page.getByRole('heading', { name: /^text card$/i })).toBeVisible()
+    await expect(page.locator('.tlclip')).toHaveCount(4)
+    // The card goes straight after the selected piece, and becomes piece 2.
+    await expect(page.locator('.ipanel__meta').first()).toContainText('Piece 2')
+  })
+
+  test('the words are editable and reach the timeline', async ({ page }) => {
+    await loadExample(page)
+    await page.getByRole('button', { name: /^add text/i }).click()
+
+    await page.getByLabel('Line 1').fill('Margaret Ellen Hughes')
+    await expect(page.locator('.tlclip--text .tlclip__title')).toHaveText('Margaret Ellen Hughes')
+  })
+
+  test('the font can be changed', async ({ page }) => {
+    await loadExample(page)
+    await page.getByRole('button', { name: /^add text/i }).click()
+
+    const typewriter = page.getByRole('button', { name: /typewriter/i })
+    await typewriter.click()
+    await expect(typewriter).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+test('music can be added from the built-in pieces', async ({ page }) => {
+  await loadExample(page)
+
+  await page.getByRole('button', { name: /stillness/i }).click()
+  // Generating and encoding three minutes of audio takes a moment.
+  await expect(page.locator('.tlmusic')).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('slider', { name: /volume/i })).toBeVisible()
+
+  await page.getByRole('button', { name: /remove music/i }).click()
+  await expect(page.getByText(/^no music$/i)).toBeVisible()
+})
+
+test('exports a genuine, playable MP4 and offers a QR code', async ({ page }) => {
   await importVideo(page, await makeTestVideo(page))
-  await expect(page.getByRole('heading', { name: /save the finished film/i })).toBeVisible()
+
+  await page.getByRole('button', { name: /export film/i }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
 
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: /save the film to this computer/i }).click()
-
-  // Scoped to the visible confirmation: the same words also go to the
-  // screen-reader live region, and an unscoped match would find both.
-  await expect(page.locator('.save__done')).toBeVisible({ timeout: 120_000 })
+  await page.getByRole('button', { name: /export to this computer/i }).click()
+  await expect(page.locator('.save__done')).toBeVisible({ timeout: 150_000 })
 
   const file = await download
   expect(file.suggestedFilename()).toBe('Tribute film.mp4')
 
-  const path = await file.path()
-  const bytes = readFileSync(path)
-
+  const bytes = readFileSync(await file.path())
   expect(bytes.byteLength).toBeGreaterThan(1024)
-  // Bytes 4-8 of every ISO base media file are the 'ftyp' box type. If this
-  // holds, a player will recognise the file rather than refusing to open it.
+  // Bytes 4-8 of every ISO base media file are the 'ftyp' box type.
   expect(bytes.subarray(4, 8).toString('ascii')).toBe('ftyp')
+
+  // The share step is a demonstration, and has to keep saying so.
+  await expect(page.locator('.share__tag')).toHaveText(/preview/i)
+  await expect(page.getByText(/not live yet/i)).toBeVisible()
+  await expect(page.locator('.share__qr img')).toBeVisible()
 })

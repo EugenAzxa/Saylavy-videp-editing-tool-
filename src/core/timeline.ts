@@ -15,7 +15,7 @@
 import { MIN_CLIP_DURATION } from './constants'
 import { newId } from './id'
 import { clamp, snapToFrame } from './time'
-import type { Clip, Id, MediaAsset, Project, TimedClip, TrimEdge } from './types'
+import type { Clip, Id, MediaAsset, Project, TimedClip, TitleSpec, TrimEdge } from './types'
 
 type AssetLookup = Readonly<Record<Id, MediaAsset>>
 
@@ -88,6 +88,52 @@ export function appendAsset(project: Project, asset: MediaAsset, trackId: Id): P
     duration: snapToFrame(asset.duration, project.fps),
   }
   return { ...project, clips: [...project.clips, clip] }
+}
+
+/**
+ * Insert a text card. Goes in after `afterIndex`, or at the end when that is
+ * null — so "Add text" from a selected piece puts the card straight after it,
+ * which is nearly always where it is wanted.
+ */
+export function insertTitle(
+  project: Project,
+  trackId: Id,
+  title: TitleSpec,
+  duration: number,
+  afterIndex: number | null = null,
+): Project {
+  const card: Clip = {
+    id: newId('title'),
+    assetId: null,
+    trackId,
+    inPoint: 0,
+    duration: snapToFrame(duration, project.fps),
+    title,
+  }
+
+  if (afterIndex === null) return { ...project, clips: [...project.clips, card] }
+
+  const siblings = clipsOfTrack(project, trackId)
+  const anchor = siblings[afterIndex]
+  if (!anchor) return { ...project, clips: [...project.clips, card] }
+
+  const at = project.clips.findIndex((clip) => clip.id === anchor.id)
+  const clips = [...project.clips]
+  clips.splice(at + 1, 0, card)
+  return { ...project, clips }
+}
+
+/** Replace a text card's content. */
+export function updateTitle(project: Project, clipId: Id, title: TitleSpec): Project {
+  const clip = findClip(project, clipId)
+  if (!clip || !clip.title) return project
+
+  return {
+    ...project,
+    clips: project.clips.map((candidate) =>
+      candidate.id === clipId ? { ...candidate, title } : candidate,
+    ),
+  }
 }
 
 export function removeClip(project: Project, clipId: Id): Project {
@@ -189,13 +235,15 @@ export function trimClip(
   const clip = findClip(project, clipId)
   if (!clip) return project
 
-  const asset = assets[clip.assetId]
-  if (!asset) return project
+  const asset = clip.assetId === null ? null : assets[clip.assetId]
+  if (clip.assetId !== null && !asset) return project
 
-  // A still photo has no end: it can be held on screen for as long as the user
-  // likes. Video runs out when the file does.
+  // A text card and a still photo both have no end: they can be held on screen
+  // for as long as the user likes. Video runs out when the file does.
   const sourceDuration =
-    asset.kind === 'image' ? Number.POSITIVE_INFINITY : snapToFrame(asset.duration, project.fps)
+    !asset || asset.kind === 'image'
+      ? Number.POSITIVE_INFINITY
+      : snapToFrame(asset.duration, project.fps)
   let { inPoint, duration } = clip
 
   if (edge === 'start') {

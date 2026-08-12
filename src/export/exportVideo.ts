@@ -36,7 +36,7 @@ import {
 import { OUTPUT_CHANNELS, OUTPUT_SAMPLE_RATE } from '@/core/constants'
 import { layoutTrack, projectDuration } from '@/core/timeline'
 import type { Id, MediaAsset, Project, TimedClip } from '@/core/types'
-import { clearFrame, drawContained } from '@/playback/compositor'
+import { clearFrame, drawContained, drawTitle } from '@/playback/compositor'
 
 export type ExportPhase = 'preparing' | 'sound' | 'picture' | 'finishing'
 
@@ -154,13 +154,27 @@ export async function exportVideo(
 
     for (const entry of timeline) {
       throwIfCancelled()
-      const asset = assets[entry.clip.assetId]
-      if (!asset) continue
+      const asset = entry.clip.assetId === null ? undefined : assets[entry.clip.assetId]
+      if (entry.clip.assetId !== null && !asset) continue
 
       const startFrame = Math.round(entry.start * fps)
       const endFrame = Math.round(entry.end * fps)
       const count = Math.max(0, endFrame - startFrame)
       if (count === 0) continue
+
+      // A text card. Painted once — every frame of it is identical.
+      if (!asset) {
+        if (entry.clip.title) drawTitle(ctx, entry.clip.title, width, height)
+        else clearFrame(ctx, width, height)
+
+        for (let i = 0; i < count; i += 1) {
+          throwIfCancelled()
+          await videoSource.add((startFrame + i) / fps, 1 / fps)
+          framesDone += 1
+          report('picture', pictureBase + (framesDone / framesTotal) * pictureShare, framesDone)
+        }
+        continue
+      }
 
       if (asset.kind === 'image') {
         let bitmap = bitmaps.get(asset.id)
@@ -262,8 +276,11 @@ async function mixAudio(
   timeline: readonly TimedClip[],
   signal: AbortSignal | undefined,
 ): Promise<AudioBuffer | null> {
-  const audible = timeline.filter((entry) => assets[entry.clip.assetId]?.hasAudio)
-  if (audible.length === 0) return null
+  const audible = timeline.filter(
+    (entry) => entry.clip.assetId !== null && assets[entry.clip.assetId]?.hasAudio,
+  )
+  const music = project.music ? assets[project.music.assetId] : undefined
+  if (audible.length === 0 && !music) return null
 
   const total = projectDuration(project)
   const frames = Math.ceil(total * OUTPUT_SAMPLE_RATE)
@@ -273,29 +290,62 @@ async function mixAudio(
   const decoded = new Map<Id, AudioBuffer>()
   let scheduled = 0
 
+  /** Read a file once and keep it — several clips often share one source. */
+  async function bufferFor(asset: MediaAsset): Promise<AudioBuffer | null> {
+    const cached = decoded.get(asset.id)
+    if (cached) return cached
+    try {
+      // `decodeAudioData` detaches the array it is given, so each asset is
+      // read exactly once and the result cached.
+      const buffer = await ctx.decodeAudioData(await asset.file.arrayBuffer())
+      decoded.set(asset.id, buffer)
+      return buffer
+    } catch {
+      return null
+    }
+  }
+
   for (const entry of audible) {
     if (signal?.aborted) throw new ExportCancelled()
+    if (entry.clip.assetId === null) continue
 
     const asset = assets[entry.clip.assetId]
     if (!asset) continue
 
-    let buffer = decoded.get(asset.id)
-    if (!buffer) {
-      try {
-        // `decodeAudioData` detaches the buffer it is given, so each asset is
-        // read once and the result cached for every clip cut from it.
-        buffer = await ctx.decodeAudioData(await asset.file.arrayBuffer())
-        decoded.set(asset.id, buffer)
-      } catch {
-        continue // silent clip; the picture still renders
-      }
-    }
+    const buffer = await bufferFor(asset)
+    if (!buffer) continue // silent clip; the picture still renders
 
     const node = ctx.createBufferSource()
     node.buffer = buffer
     node.connect(ctx.destination)
     node.start(entry.start, entry.clip.inPoint, entry.clip.duration)
     scheduled += 1
+  }
+
+  // Music, laid under everything, with its fades drawn as gain ramps. The
+  // fades are clamped so that on a film shorter than the two fades combined
+  // they meet in the middle instead of overlapping into silence.
+  if (project.music && music) {
+    const buffer = await bufferFor(music)
+    if (buffer) {
+      const { volume, fadeIn, fadeOut } = project.music
+      const rise = Math.min(fadeIn, total / 2)
+      const fall = Math.min(fadeOut, total / 2)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, 0)
+      gain.gain.linearRampToValueAtTime(volume, rise)
+      gain.gain.setValueAtTime(volume, Math.max(rise, total - fall))
+      gain.gain.linearRampToValueAtTime(0, total)
+      gain.connect(ctx.destination)
+
+      const node = ctx.createBufferSource()
+      node.buffer = buffer
+      node.connect(gain)
+      // Trimmed to the film. A piece longer than the film simply stops.
+      node.start(0, 0, Math.min(total, buffer.duration))
+      scheduled += 1
+    }
   }
 
   if (scheduled === 0) return null

@@ -17,8 +17,8 @@ export function ThemeToggle() {
 
   return (
     <Button
-      label={goingLight ? 'Light screen' : 'Dark screen'}
-      hint={goingLight ? 'Easier to read' : 'Easier on the eyes'}
+      label={goingLight ? 'Light' : 'Dark'}
+      size="compact"
       icon={goingLight ? <SunIcon /> : <MoonIcon />}
       ariaLabel={goingLight ? 'Switch to the light screen' : 'Switch to the dark screen'}
       onClick={() => {

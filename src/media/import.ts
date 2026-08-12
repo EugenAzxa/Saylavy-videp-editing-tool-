@@ -10,7 +10,7 @@
 import { newId } from '@/core/id'
 import type { MediaAsset, MediaKind } from '@/core/types'
 import { MediaImportError } from './errors'
-import { probeImage, probeVideo } from './probe'
+import { probeAudio, probeImage, probeVideo } from './probe'
 
 export interface ImportOutcome {
   assets: MediaAsset[]
@@ -48,25 +48,22 @@ async function importOne(file: File): Promise<MediaAsset | MediaImportError> {
   if (kind === null) {
     return new MediaImportError(
       file.name,
-      'This is not a video or a picture, so it cannot go into the film.',
-      'Videos and photographs from a phone or camera both work.',
+      'This is not a video, a picture or a piece of music.',
+      'Videos and photographs from a phone or camera both work, as do MP3 files.',
     )
   }
-  if (kind === 'audio') {
-    return new MediaImportError(
-      file.name,
-      'Music and sound files cannot be added yet.',
-      'This is coming in a later version. For now you can only add videos and photographs.',
-    )
-  }
-
   let url: string | null = null
   try {
-    const probe = kind === 'video' ? await probeVideo(file) : await probeImage(file)
+    const probe =
+      kind === 'video'
+        ? await probeVideo(file)
+        : kind === 'audio'
+          ? await probeAudio(file)
+          : await probeImage(file)
     url = URL.createObjectURL(file)
 
     return {
-      id: newId(kind === 'video' ? 'video' : 'photo'),
+      id: newId(kind === 'video' ? 'video' : kind === 'audio' ? 'music' : 'photo'),
       kind,
       name: file.name,
       file,

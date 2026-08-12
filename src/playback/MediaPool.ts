@@ -17,6 +17,7 @@ import type { Id, MediaAsset } from '@/core/types'
 export class MediaPool {
   private readonly videos = new Map<Id, HTMLVideoElement>()
   private readonly images = new Map<Id, HTMLImageElement>()
+  private readonly audios = new Map<Id, HTMLAudioElement>()
   private readonly container: HTMLDivElement
 
   constructor() {
@@ -43,6 +44,26 @@ export class MediaPool {
     return video
   }
 
+  /** The music bed. Separate from video elements: it plays across the whole film. */
+  getAudio(asset: MediaAsset): HTMLAudioElement {
+    const existing = this.audios.get(asset.id)
+    if (existing) return existing
+
+    const audio = document.createElement('audio')
+    audio.src = asset.url
+    audio.preload = 'auto'
+    this.container.appendChild(audio)
+    this.audios.set(asset.id, audio)
+    return audio
+  }
+
+  /** Stop every music element except the one currently in the project. */
+  pauseMusicExcept(assetId: Id | null): void {
+    for (const [id, audio] of this.audios) {
+      if (id !== assetId && !audio.paused) audio.pause()
+    }
+  }
+
   getImage(asset: MediaAsset): HTMLImageElement {
     const existing = this.images.get(asset.id)
     if (existing) return existing
@@ -64,6 +85,12 @@ export class MediaPool {
     this.pauseAllExcept(null)
   }
 
+  /** Everything, including the music. Used when playback stops. */
+  pauseEverything(): void {
+    this.pauseAllExcept(null)
+    this.pauseMusicExcept(null)
+  }
+
   /** Drop an asset's element, e.g. when the asset is removed from the project. */
   forget(assetId: Id): void {
     const video = this.videos.get(assetId)
@@ -74,11 +101,21 @@ export class MediaPool {
       video.remove()
       this.videos.delete(assetId)
     }
+
+    const audio = this.audios.get(assetId)
+    if (audio) {
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+      audio.remove()
+      this.audios.delete(assetId)
+    }
+
     this.images.delete(assetId)
   }
 
   dispose(): void {
-    for (const id of [...this.videos.keys()]) this.forget(id)
+    for (const id of [...this.videos.keys(), ...this.audios.keys()]) this.forget(id)
     this.images.clear()
     this.container.remove()
   }

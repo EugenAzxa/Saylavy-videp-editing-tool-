@@ -10,7 +10,13 @@
 import type { ReactNode } from 'react'
 
 export type ButtonTone = 'plain' | 'primary' | 'danger'
-export type ButtonSize = 'medium' | 'large' | 'huge'
+/**
+ * `compact` is for application chrome — toolbars and the top bar — where a
+ * two-line label would turn a row of controls into a wall of prose. It is
+ * still 44px tall, which is the WCAG 2.2 target size. Everything the user acts
+ * on inside the film stays at `medium` or larger.
+ */
+export type ButtonSize = 'compact' | 'medium' | 'large' | 'huge'
 
 interface ButtonProps {
   label: string

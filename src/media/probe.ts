@@ -13,11 +13,15 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny'
 import { DEFAULT_IMAGE_DURATION } from '@/core/constants'
 import {
   MediaImportError,
+  NO_AUDIO_TRACK,
   NO_VIDEO_TRACK,
   TRY_ANOTHER_BROWSER,
+  TRY_MP3,
   TRY_MP4,
   UNREADABLE,
+  UNREADABLE_SOUND,
   UNSUPPORTED_CODEC,
+  UNSUPPORTED_SOUND,
 } from './errors'
 
 export interface ProbeResult {
@@ -58,6 +62,31 @@ export async function probeVideo(file: File): Promise<ProbeResult> {
     const posterUrl = await makePoster(videoTrack, duration).catch(() => null)
 
     return { duration, width, height, hasAudio: audioTrack !== null, posterUrl }
+  } finally {
+    input.dispose()
+  }
+}
+
+/** Music, or any other sound file. No picture, so nothing to make a poster from. */
+export async function probeAudio(file: File): Promise<ProbeResult> {
+  const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) })
+
+  try {
+    const track = await input.getPrimaryAudioTrack().catch((cause) => {
+      throw new MediaImportError(file.name, UNREADABLE_SOUND, TRY_MP3, cause)
+    })
+    if (!track) throw new MediaImportError(file.name, NO_AUDIO_TRACK, TRY_MP3)
+    if (!(await track.canDecode())) {
+      throw new MediaImportError(file.name, UNSUPPORTED_SOUND, TRY_ANOTHER_BROWSER)
+    }
+
+    return {
+      duration: await input.computeDuration(),
+      width: 0,
+      height: 0,
+      hasAudio: true,
+      posterUrl: null,
+    }
   } finally {
     input.dispose()
   }

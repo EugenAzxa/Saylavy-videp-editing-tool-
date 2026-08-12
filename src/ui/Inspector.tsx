@@ -1,0 +1,336 @@
+import { useRef, useState } from 'react'
+import { MIN_CLIP_DURATION } from '@/core/constants'
+import { describeDuration, formatLength } from '@/core/time'
+import { FONTS, MAX_TITLE_LINES, TITLE_STYLES } from '@/core/titles'
+import type { TimedClip, TitleSpec } from '@/core/types'
+import { MUSIC_BEDS, renderMusicBed } from '@/media/music'
+import { announce } from '@/state/announce'
+import { useSelectedPiece } from '@/state/selectors'
+import { useEditor } from '@/state/store'
+import { Button } from './Button'
+import { MusicIcon, TrashIcon } from './Icon'
+
+/**
+ * The right-hand panel: everything about whatever is currently selected, plus
+ * the music, which belongs to the film as a whole.
+ *
+ * Contextual rather than a wall of every control at once — an editor that
+ * shows you eleven things you cannot use is how a tool starts feeling
+ * difficult.
+ */
+export function Inspector() {
+  const selected = useSelectedPiece()
+
+  return (
+    <aside className="inspector" aria-label="Properties">
+      {selected?.clip.title ? (
+        <TitleSection entry={selected} title={selected.clip.title} />
+      ) : selected ? (
+        <ClipSection entry={selected} />
+      ) : (
+        <section className="ipanel ipanel--hint">
+          <h2 className="ipanel__title">Nothing selected</h2>
+          <p className="ipanel__body">
+            Choose a piece on the timeline below and its settings appear here.
+          </p>
+        </section>
+      )}
+
+      <MusicSection />
+    </aside>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+const TRIM_STEP = 1
+
+function ClipSection({ entry }: { entry: TimedClip }) {
+  const assets = useEditor((state) => state.assets)
+  const trimSelected = useEditor((state) => state.trimSelected)
+  const { clip, index } = entry
+  const asset = clip.assetId === null ? undefined : assets[clip.assetId]
+
+  const sourceLength =
+    asset && asset.kind === 'image' ? Number.POSITIVE_INFINITY : (asset?.duration ?? 0)
+  const canGrowStart = clip.inPoint > 0
+  const canGrowEnd = clip.inPoint + clip.duration < sourceLength
+  const canShrink = clip.duration - TRIM_STEP >= MIN_CLIP_DURATION
+
+  const trim = (edge: 'start' | 'end', delta: number, message: string) => {
+    trimSelected(edge, delta)
+    announce(message)
+  }
+
+  return (
+    <section className="ipanel">
+      <h2 className="ipanel__title">Piece {index + 1}</h2>
+      <p className="ipanel__meta">
+        {asset?.name ?? 'Missing file'} &middot; {formatLength(clip.duration)}
+      </p>
+
+      <h3 className="ipanel__label">Trim the beginning</h3>
+      <div className="ipanel__pair">
+        <Button
+          label="Cut 1s"
+          size="compact"
+          disabled={!canShrink}
+          onClick={() => trim('start', TRIM_STEP, 'One second off the beginning.')}
+        />
+        <Button
+          label="Add 1s"
+          size="compact"
+          disabled={!canGrowStart}
+          onClick={() => trim('start', -TRIM_STEP, 'One second back at the beginning.')}
+        />
+      </div>
+
+      <h3 className="ipanel__label">Trim the end</h3>
+      <div className="ipanel__pair">
+        <Button
+          label="Cut 1s"
+          size="compact"
+          disabled={!canShrink}
+          onClick={() => trim('end', -TRIM_STEP, 'One second off the end.')}
+        />
+        <Button
+          label="Add 1s"
+          size="compact"
+          disabled={!canGrowEnd}
+          onClick={() => trim('end', TRIM_STEP, 'One second back at the end.')}
+        />
+      </div>
+
+      <p className="ipanel__note">This piece runs for {describeDuration(clip.duration)}.</p>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+function TitleSection({ entry, title }: { entry: TimedClip; title: TitleSpec }) {
+  const editTitle = useEditor((state) => state.editTitle)
+  const trimSelected = useEditor((state) => state.trimSelected)
+
+  const change = (patch: Partial<TitleSpec>) => editTitle(entry.clip.id, { ...title, ...patch })
+
+  const setLine = (index: number, value: string) => {
+    const lines = [...title.lines]
+    while (lines.length < MAX_TITLE_LINES) lines.push('')
+    lines[index] = value
+    change({ lines })
+  }
+
+  const lines = [...title.lines]
+  while (lines.length < MAX_TITLE_LINES) lines.push('')
+
+  return (
+    <section className="ipanel">
+      <h2 className="ipanel__title">Text card</h2>
+      <p className="ipanel__meta">Piece {entry.index + 1} &middot; {formatLength(entry.clip.duration)}</p>
+
+      <h3 className="ipanel__label">Words</h3>
+      {lines.map((line, index) => (
+        <input
+          key={index}
+          className="ifield"
+          type="text"
+          value={line}
+          placeholder={index === 0 ? 'In loving memory' : index === 1 ? '1943 – 2026' : 'Optional'}
+          aria-label={`Line ${index + 1}`}
+          onChange={(event) => setLine(index, event.target.value)}
+        />
+      ))}
+
+      <h3 className="ipanel__label">Lettering</h3>
+      <div className="ifonts">
+        {FONTS.map((font) => (
+          <button
+            key={font.id}
+            type="button"
+            className={`ifont${font.id === title.fontId ? ' ifont--on' : ''}`}
+            style={{ fontFamily: font.stack }}
+            aria-pressed={font.id === title.fontId}
+            onClick={() => change({ fontId: font.id })}
+          >
+            <span className="ifont__sample">Aa</span>
+            <span className="ifont__name">{font.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <h3 className="ipanel__label">Colours</h3>
+      <div className="istyles">
+        {TITLE_STYLES.map((style) => {
+          const on = style.color === title.color && style.background === title.background
+          return (
+            <button
+              key={style.id}
+              type="button"
+              className={`istyle${on ? ' istyle--on' : ''}`}
+              style={{ background: style.background, color: style.color }}
+              aria-pressed={on}
+              aria-label={style.name}
+              onClick={() => change({ color: style.color, background: style.background })}
+            >
+              Aa
+            </button>
+          )
+        })}
+      </div>
+
+      <h3 className="ipanel__label">How long it stays up</h3>
+      <div className="ipanel__pair">
+        <Button
+          label="Shorter"
+          size="compact"
+          disabled={entry.clip.duration - 1 < MIN_CLIP_DURATION}
+          onClick={() => trimSelected('end', -1)}
+        />
+        <Button label="Longer" size="compact" onClick={() => trimSelected('end', 1)} />
+      </div>
+      <p className="ipanel__note">On screen for {describeDuration(entry.clip.duration)}.</p>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+function MusicSection() {
+  const music = useEditor((state) => state.project.music)
+  const assets = useEditor((state) => state.assets)
+  const addMusic = useEditor((state) => state.addMusic)
+  const removeMusic = useEditor((state) => state.removeMusic)
+  const setMusicSettings = useEditor((state) => state.setMusicSettings)
+
+  const picker = useRef<HTMLInputElement>(null)
+  const [making, setMaking] = useState<string | null>(null)
+
+  const chooseBed = async (bedId: string, name: string) => {
+    setMaking(bedId)
+    announce(`Preparing ${name}. This takes a moment.`)
+    try {
+      await addMusic(await renderMusicBed(bedId))
+      announce(`${name} added under the film.`)
+    } catch {
+      announce('That music could not be prepared in this browser.')
+    } finally {
+      setMaking(null)
+    }
+  }
+
+  const track = music ? assets[music.assetId] : undefined
+
+  return (
+    <section className="ipanel">
+      <h2 className="ipanel__title">
+        <MusicIcon /> Music
+      </h2>
+
+      <input
+        ref={picker}
+        type="file"
+        accept="audio/*,.mp3,.m4a,.wav"
+        className="visually-hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void addMusic(file)
+          event.target.value = ''
+        }}
+      />
+
+      {track && music ? (
+        <>
+          <p className="ipanel__meta">{track.name}</p>
+
+          <label className="islider" htmlFor="music-volume">
+            <span>
+              Volume <b>{Math.round(music.volume * 100)}%</b>
+            </span>
+            <input
+              id="music-volume"
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={music.volume}
+              onChange={(event) => setMusicSettings({ volume: Number(event.target.value) })}
+            />
+          </label>
+
+          <label className="islider" htmlFor="music-fade-in">
+            <span>
+              Fade in <b>{music.fadeIn.toFixed(0)}s</b>
+            </span>
+            <input
+              id="music-fade-in"
+              type="range"
+              min={0}
+              max={10}
+              step={0.5}
+              value={music.fadeIn}
+              onChange={(event) => setMusicSettings({ fadeIn: Number(event.target.value) })}
+            />
+          </label>
+
+          <label className="islider" htmlFor="music-fade-out">
+            <span>
+              Fade out <b>{music.fadeOut.toFixed(0)}s</b>
+            </span>
+            <input
+              id="music-fade-out"
+              type="range"
+              min={0}
+              max={10}
+              step={0.5}
+              value={music.fadeOut}
+              onChange={(event) => setMusicSettings({ fadeOut: Number(event.target.value) })}
+            />
+          </label>
+
+          <Button
+            label="Remove music"
+            tone="danger"
+            size="compact"
+            icon={<TrashIcon />}
+            onClick={() => {
+              removeMusic()
+              announce('Music removed.')
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <p className="ipanel__body">
+            Choose a piece written for this app — free to use, with nothing to credit — or add one
+            of your own.
+          </p>
+
+          <div className="ibeds">
+            {MUSIC_BEDS.map((bed) => (
+              <button
+                key={bed.id}
+                type="button"
+                className="ibed"
+                disabled={making !== null}
+                onClick={() => void chooseBed(bed.id, bed.name)}
+              >
+                <span className="ibed__name">
+                  {making === bed.id ? `Preparing ${bed.name}…` : bed.name}
+                </span>
+                <span className="ibed__desc">{bed.description}</span>
+              </button>
+            ))}
+          </div>
+
+          <Button
+            label="Use my own music"
+            size="compact"
+            disabled={making !== null}
+            onClick={() => picker.current?.click()}
+          />
+        </>
+      )}
+    </section>
+  )
+}

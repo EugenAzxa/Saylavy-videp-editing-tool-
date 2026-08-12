@@ -46,15 +46,32 @@ export interface MediaAsset {
   posterUrl: string | null
 }
 
-/** A text card. Lives on the clip itself — there is no file behind it. */
+/** Where a clip's text sits. */
+export type TextPlacement =
+  /** Fills the frame on its own. The only option when there is no footage. */
+  | 'card'
+  /** Over the footage, low down — the usual place for a name and dates. */
+  | 'bottom'
+  /** Over the footage, centred. */
+  | 'centre'
+
+/**
+ * Words on a clip. Lives on the clip itself — there is no file behind it.
+ *
+ * The same shape covers both jobs. A clip with no `assetId` renders its text
+ * as a full-screen card; a clip with footage renders it OVER that footage, at
+ * `placement`. One structure rather than two, because they differ only in
+ * where the words are drawn.
+ */
 export interface TitleSpec {
   /** One to three lines. Blank lines are dropped at render time. */
   lines: string[]
   fontId: string
   /** Text colour. */
   color: string
-  /** Card background. */
+  /** Card background. Ignored when the text sits over footage. */
   background: string
+  placement: TextPlacement
 }
 
 /**
@@ -102,7 +119,10 @@ export interface Clip {
   inPoint: number
   /** Seconds of source this clip shows. `inPoint + duration <= asset.duration`. */
   duration: number
-  /** Present exactly when `assetId` is null. */
+  /**
+   * Words on this clip. Always present when `assetId` is null — that is what
+   * makes it a text card. Optional otherwise, where it becomes an overlay.
+   */
   title?: TitleSpec
 }
 

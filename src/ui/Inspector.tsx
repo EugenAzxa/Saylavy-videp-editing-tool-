@@ -8,7 +8,7 @@ import { announce } from '@/state/announce'
 import { useSelectedPiece } from '@/state/selectors'
 import { useEditor } from '@/state/store'
 import { Button } from './Button'
-import { MusicIcon, TrashIcon } from './Icon'
+import { MusicIcon, TextIcon, TrashIcon } from './Icon'
 
 /**
  * The right-hand panel: everything about whatever is currently selected, plus
@@ -20,13 +20,17 @@ import { MusicIcon, TrashIcon } from './Icon'
  */
 export function Inspector() {
   const selected = useSelectedPiece()
+  const isCard = selected?.clip.assetId === null
 
   return (
     <aside className="inspector" aria-label="Properties">
-      {selected?.clip.title ? (
+      {selected && isCard && selected.clip.title ? (
         <TitleSection entry={selected} title={selected.clip.title} />
       ) : selected ? (
-        <ClipSection entry={selected} />
+        <>
+          <ClipSection entry={selected} />
+          <TextOverSection entry={selected} />
+        </>
       ) : (
         <section className="ipanel ipanel--hint">
           <h2 className="ipanel__title">Nothing selected</h2>
@@ -108,6 +112,119 @@ function ClipSection({ entry }: { entry: TimedClip }) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Words laid over a piece of footage, rather than on a card of their own.
+ *
+ * This is what most people mean by "add text": a name and dates across a
+ * photograph, not a black screen between two clips. Both exist; this is the
+ * one that belongs next to the footage it sits on.
+ */
+function TextOverSection({ entry }: { entry: TimedClip }) {
+  const addTextOver = useEditor((state) => state.addTextOver)
+  const removeTextOver = useEditor((state) => state.removeTextOver)
+  const editTitle = useEditor((state) => state.editTitle)
+
+  const title = entry.clip.title
+  if (!title) {
+    return (
+      <section className="ipanel">
+        <h2 className="ipanel__title">Words over this piece</h2>
+        <p className="ipanel__body">Put a name, dates or a line of text across the picture.</p>
+        <Button
+          label="Add words over this"
+          size="compact"
+          icon={<TextIcon />}
+          onClick={() => {
+            addTextOver(entry.clip.id)
+            announce('Words added over this piece. Type them in the panel.')
+          }}
+        />
+      </section>
+    )
+  }
+
+  const change = (patch: Partial<TitleSpec>) => editTitle(entry.clip.id, { ...title, ...patch })
+
+  const lines = [...title.lines]
+  while (lines.length < MAX_TITLE_LINES) lines.push('')
+
+  return (
+    <section className="ipanel">
+      <h2 className="ipanel__title">Words over this piece</h2>
+
+      {lines.map((line, index) => (
+        <input
+          key={index}
+          className="ifield"
+          type="text"
+          value={line}
+          placeholder={index === 0 ? 'Margaret Hughes' : index === 1 ? '1943 – 2026' : 'Optional'}
+          aria-label={`Overlay line ${index + 1}`}
+          onChange={(event) => {
+            const next = [...lines]
+            next[index] = event.target.value
+            change({ lines: next })
+          }}
+        />
+      ))}
+
+      <h3 className="ipanel__label">Where it sits</h3>
+      <div className="ipanel__pair">
+        <Button
+          label="Lower"
+          size="compact"
+          disabled={title.placement === 'bottom'}
+          onClick={() => change({ placement: 'bottom' })}
+        />
+        <Button
+          label="Centred"
+          size="compact"
+          disabled={title.placement === 'centre'}
+          onClick={() => change({ placement: 'centre' })}
+        />
+      </div>
+
+      <h3 className="ipanel__label">Lettering</h3>
+      <FontPicker fontId={title.fontId} onPick={(fontId) => change({ fontId })} />
+
+      <Button
+        label="Remove the words"
+        tone="danger"
+        size="compact"
+        icon={<TrashIcon />}
+        onClick={() => {
+          removeTextOver(entry.clip.id)
+          announce('Words removed from this piece.')
+        }}
+      />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+function FontPicker({ fontId, onPick }: { fontId: string; onPick: (id: string) => void }) {
+  return (
+    <div className="ifonts">
+      {FONTS.map((font) => (
+        <button
+          key={font.id}
+          type="button"
+          className={`ifont${font.id === fontId ? ' ifont--on' : ''}`}
+          style={{ fontFamily: font.stack }}
+          aria-pressed={font.id === fontId}
+          onClick={() => onPick(font.id)}
+        >
+          <span className="ifont__sample">Aa</span>
+          <span className="ifont__name">{font.name}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
 function TitleSection({ entry, title }: { entry: TimedClip; title: TitleSpec }) {
   const editTitle = useEditor((state) => state.editTitle)
   const trimSelected = useEditor((state) => state.trimSelected)
@@ -143,21 +260,7 @@ function TitleSection({ entry, title }: { entry: TimedClip; title: TitleSpec }) 
       ))}
 
       <h3 className="ipanel__label">Lettering</h3>
-      <div className="ifonts">
-        {FONTS.map((font) => (
-          <button
-            key={font.id}
-            type="button"
-            className={`ifont${font.id === title.fontId ? ' ifont--on' : ''}`}
-            style={{ fontFamily: font.stack }}
-            aria-pressed={font.id === title.fontId}
-            onClick={() => change({ fontId: font.id })}
-          >
-            <span className="ifont__sample">Aa</span>
-            <span className="ifont__name">{font.name}</span>
-          </button>
-        ))}
-      </div>
+      <FontPicker fontId={title.fontId} onPick={(fontId) => change({ fontId })} />
 
       <h3 className="ipanel__label">Colours</h3>
       <div className="istyles">

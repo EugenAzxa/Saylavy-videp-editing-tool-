@@ -36,7 +36,7 @@ import {
 import { OUTPUT_CHANNELS, OUTPUT_SAMPLE_RATE } from '@/core/constants'
 import { layoutTrack, projectDuration } from '@/core/timeline'
 import type { Id, MediaAsset, Project, TimedClip } from '@/core/types'
-import { clearFrame, drawContained, drawTitle } from '@/playback/compositor'
+import { clearFrame, drawContained, drawTextOver, drawTitle } from '@/playback/compositor'
 
 export type ExportPhase = 'preparing' | 'sound' | 'picture' | 'finishing'
 
@@ -183,6 +183,7 @@ export async function exportVideo(
           bitmaps.set(asset.id, bitmap)
         }
         drawContained(ctx, bitmap, width, height)
+        if (entry.clip.title) drawTextOver(ctx, entry.clip.title, width, height)
 
         for (let i = 0; i < count; i += 1) {
           throwIfCancelled()
@@ -207,15 +208,21 @@ export async function exportVideo(
       for await (const wrapped of sink.canvasesAtTimestamps(timestamps)) {
         throwIfCancelled()
 
+        let painted = false
         if (wrapped) {
-          drawContained(ctx, wrapped.canvas, width, height)
+          painted = drawContained(ctx, wrapped.canvas, width, height)
         } else if (first) {
           // No frame at this instant and nothing sensible to hold over from
           // the previous clip — start black rather than with a stale picture.
           clearFrame(ctx, width, height)
+          painted = true
         }
         // A null mid-clip means the source has no new frame yet; holding the
-        // last one is exactly what a player would show.
+        // last one is exactly what a player would show — and it already has
+        // the overlay on it, so drawing it again would stack another scrim.
+        if (painted && entry.clip.title) {
+          drawTextOver(ctx, entry.clip.title, width, height)
+        }
 
         first = false
         await videoSource.add((startFrame + index) / fps, 1 / fps)

@@ -17,7 +17,7 @@ import { clamp } from '@/core/time'
 import { clipAtTime, layoutTrack, projectDuration, sourceTimeAt } from '@/core/timeline'
 import type { Id, MediaAsset, Project } from '@/core/types'
 import { MAIN_TRACK_ID, useEditor } from '@/state/store'
-import { clearFrame, drawContained, drawTitle } from './compositor'
+import { clearFrame, drawContained, drawTextOver, drawTitle } from './compositor'
 import { MediaPool } from './MediaPool'
 
 /** Tolerance for "the video is already where we want it", in seconds. */
@@ -124,12 +124,37 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
         } else {
           if (!video.paused) video.pause()
           activeClipRef.current = null
-          if (Math.abs(video.currentTime - wanted) > SEEK_EPSILON) {
+          // Do not touch `currentTime` before the element knows its own
+          // duration. Assigning it every animation frame while the file is
+          // still loading restarts the seek endlessly, and the video never
+          // becomes ready at all — the picture just stays blank.
+          if (
+            video.readyState >= HTMLMediaElement.HAVE_METADATA &&
+            Math.abs(video.currentTime - wanted) > SEEK_EPSILON
+          ) {
             video.currentTime = wanted
           }
+          nudgeStalledSeek(video)
         }
 
-        drawContained(ctx, video, project.width, project.height)
+        let painted = drawContained(ctx, video, project.width, project.height)
+
+        // Not ready yet — a seek into a clip that has not been visited can
+        // take a moment. Fall back to the still made at import: the wrong
+        // instant of the right piece, rather than the right instant of the
+        // previous one, which just looks like the editor ignored the click.
+        if (!painted) {
+          const poster = pool.getPoster(asset)
+          if (poster) painted = drawContained(ctx, poster, project.width, project.height)
+        }
+
+        // The overlay is drawn only when a fresh frame went down underneath
+        // it. Its scrim is translucent, so painting it onto a frame that is
+        // already showing it darkens the picture a little more every tick —
+        // within a second the screen is black.
+        if (painted && entry.clip.title) {
+          drawTextOver(ctx, entry.clip.title, project.width, project.height)
+        }
         return
       }
 
@@ -141,7 +166,9 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
         if (next >= entry.end - EDGE) advance(entry.end)
         else state.setPlayhead(next)
       }
-      drawContained(ctx, pool.getImage(asset), project.width, project.height)
+      if (drawContained(ctx, pool.getImage(asset), project.width, project.height) && entry.clip.title) {
+        drawTextOver(ctx, entry.clip.title, project.width, project.height)
+      }
     }
 
     function tick(now: number): void {
@@ -160,6 +187,50 @@ export function usePlayback(canvasRef: RefObject<HTMLCanvasElement | null>): voi
       pool.dispose()
     }
   }, [canvasRef])
+}
+
+/**
+ * Unstick a seek that will never finish on its own.
+ *
+ * Chrome will leave `seeking` true indefinitely on a paused media element that
+ * has never been played — even with the entire file buffered and no error.
+ * `currentTime` reports the target, `readyState` stays at HAVE_METADATA, and
+ * no frame is ever produced, so the preview silently keeps showing the
+ * previous clip. Observed reliably when scrubbing straight into a piece that
+ * had not been visited yet.
+ *
+ * Starting playback forces the decoder to run; one frame later there is
+ * something to draw and we stop again. Muted throughout, so nothing is heard.
+ *
+ * The WeakSet stops this firing on every animation frame while the play()
+ * promise is still pending.
+ */
+const beingNudged = new WeakSet<HTMLVideoElement>()
+
+function nudgeStalledSeek(video: HTMLVideoElement): void {
+  if (!video.seeking || video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return
+  if (beingNudged.has(video)) return
+
+  beingNudged.add(video)
+  const wasMuted = video.muted
+  video.muted = true
+
+  const settle = () => {
+    video.pause()
+    video.muted = wasMuted
+    beingNudged.delete(video)
+  }
+
+  void video
+    .play()
+    .then(() => {
+      // One frame is enough; anything longer and the playhead drifts.
+      window.setTimeout(settle, 60)
+    })
+    .catch(() => {
+      video.muted = wasMuted
+      beingNudged.delete(video)
+    })
 }
 
 /**

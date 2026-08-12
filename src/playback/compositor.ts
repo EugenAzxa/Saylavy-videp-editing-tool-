@@ -85,15 +85,59 @@ export function drawTitle(
 ): void {
   ctx.fillStyle = title.background
   ctx.fillRect(0, 0, frameWidth, frameHeight)
+  drawWords(ctx, title, frameWidth, frameHeight, frameHeight / 2)
+}
 
+/**
+ * Words over footage.
+ *
+ * A gradient scrim goes down first. Without it the text is legible over a dark
+ * sky and invisible over a bright one, and the user cannot know which frame
+ * they will land on — the picture underneath is theirs, not ours.
+ */
+export function drawTextOver(
+  ctx: CanvasRenderingContext2D,
+  title: TitleSpec,
+  frameWidth: number,
+  frameHeight: number,
+): void {
+  const lines = visibleLines(title)
+  if (lines.length === 0) return
+
+  const centred = title.placement === 'centre'
+  const anchor = centred ? frameHeight / 2 : frameHeight * 0.8
+
+  if (centred) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)'
+    ctx.fillRect(0, 0, frameWidth, frameHeight)
+  } else {
+    const scrim = ctx.createLinearGradient(0, frameHeight * 0.52, 0, frameHeight)
+    scrim.addColorStop(0, 'rgba(0, 0, 0, 0)')
+    scrim.addColorStop(1, 'rgba(0, 0, 0, 0.78)')
+    ctx.fillStyle = scrim
+    ctx.fillRect(0, frameHeight * 0.52, frameWidth, frameHeight * 0.48)
+  }
+
+  drawWords(ctx, title, frameWidth, frameHeight, anchor, centred ? 1 : 0.72)
+}
+
+/** Shared text layout, so a card and an overlay set type identically. */
+function drawWords(
+  ctx: CanvasRenderingContext2D,
+  title: TitleSpec,
+  frameWidth: number,
+  frameHeight: number,
+  centreY: number,
+  scale = 1,
+): void {
   const lines = visibleLines(title)
   if (lines.length === 0) return
 
   // The first line is the name or the sentiment and carries the weight; the
   // rest are dates or a short quotation, and sit quieter beneath it.
-  const leadSize = frameHeight * 0.11
-  const restSize = frameHeight * 0.062
-  const gap = frameHeight * 0.035
+  const leadSize = frameHeight * 0.11 * scale
+  const restSize = frameHeight * 0.062 * scale
+  const gap = frameHeight * 0.035 * scale
   const stack = fontStack(title.fontId)
 
   const heights = lines.map((_, index) => (index === 0 ? leadSize : restSize))
@@ -103,7 +147,8 @@ export function drawTitle(
   ctx.textBaseline = 'middle'
   ctx.fillStyle = title.color
 
-  let y = frameHeight / 2 - total / 2
+  const top = centreY - total / 2
+  let y = top
   lines.forEach((line, index) => {
     const size = heights[index]!
     y += size / 2
@@ -116,7 +161,11 @@ export function drawTitle(
   // as a default. Only when there is something beneath it to separate.
   if (lines.length > 1) {
     const ruleWidth = frameWidth * 0.14
-    const ruleY = frameHeight / 2 - total / 2 + leadSize + gap * 0.15
-    ctx.fillRect(frameWidth / 2 - ruleWidth / 2, ruleY, ruleWidth, Math.max(1, frameHeight * 0.0025))
+    ctx.fillRect(
+      frameWidth / 2 - ruleWidth / 2,
+      top + leadSize + gap * 0.15,
+      ruleWidth,
+      Math.max(1, frameHeight * 0.0025),
+    )
   }
 }

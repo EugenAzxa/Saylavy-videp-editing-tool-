@@ -27,7 +27,7 @@ import {
   updateTitle,
 } from '@/core/timeline'
 import { DEFAULT_TITLE_SECONDS } from '@/core/constants'
-import { newTitle } from '@/core/titles'
+import { newOverlay, newTitle } from '@/core/titles'
 import type { Id, MediaAsset, MusicSpec, Project, TimedClip, TitleSpec, TrimEdge } from '@/core/types'
 import type { MediaImportError } from '@/media/errors'
 import { importFiles, releaseAsset } from '@/media/import'
@@ -87,6 +87,8 @@ export interface EditorState {
   // -- text cards ----------------------------------------------------------
   addTitle: () => void
   editTitle: (clipId: Id, title: TitleSpec) => void
+  addTextOver: (clipId: Id) => void
+  removeTextOver: (clipId: Id) => void
 
   // -- music ---------------------------------------------------------------
   /** Import an audio file and lay it under the film. */
@@ -189,11 +191,15 @@ export const useEditor = create<EditorState>((set, get) => {
 
     addTitle() {
       const state = get()
-      // Drop it straight after whatever is selected, which is nearly always
-      // where it is wanted; otherwise at the end.
-      const selected = state.selectedClipId
-        ? state.timeline().find((entry) => entry.clip.id === state.selectedClipId)
-        : undefined
+      // Insert after the piece under the PLAYHEAD, not after the selection.
+      // Keying off the selection meant that with nothing selected — the usual
+      // case — every card landed at the end of the film, which is almost never
+      // where it was wanted. The playhead is where the user is looking.
+      const timeline = state.timeline()
+      const here = timeline.find(
+        (entry) => state.playhead >= entry.start && state.playhead < entry.end,
+      )
+      const anchor = here ?? (state.playhead > 0 ? timeline[timeline.length - 1] : undefined)
 
       const before = state.project
       const next = insertTitle(
@@ -201,7 +207,7 @@ export const useEditor = create<EditorState>((set, get) => {
         MAIN_TRACK_ID,
         newTitle(),
         DEFAULT_TITLE_SECONDS,
-        selected ? selected.index : null,
+        anchor ? anchor.index : null,
       )
       if (next === before) return
 
@@ -224,6 +230,36 @@ export const useEditor = create<EditorState>((set, get) => {
 
     editTitle(clipId, title) {
       commit(updateTitle(get().project, clipId, title))
+    },
+
+    /** Put words over a piece of footage, rather than on a card of their own. */
+    addTextOver(clipId) {
+      const project = get().project
+      const clip = project.clips.find((candidate) => candidate.id === clipId)
+      if (!clip || clip.assetId === null || clip.title) return
+
+      commit({
+        ...project,
+        clips: project.clips.map((candidate) =>
+          candidate.id === clipId ? { ...candidate, title: newOverlay() } : candidate,
+        ),
+      })
+    },
+
+    /** Take the words off a piece of footage. Text cards are deleted, not cleared. */
+    removeTextOver(clipId) {
+      const project = get().project
+      const clip = project.clips.find((candidate) => candidate.id === clipId)
+      if (!clip || clip.assetId === null || !clip.title) return
+
+      commit({
+        ...project,
+        clips: project.clips.map((candidate) => {
+          if (candidate.id !== clipId) return candidate
+          const { title: _removed, ...rest } = candidate
+          return rest
+        }),
+      })
     },
 
     // -- music -------------------------------------------------------------

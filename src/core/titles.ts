@@ -61,6 +61,7 @@ export const TITLE_STYLES: TitleStyle[] = [
 
 export const MAX_TITLE_LINES = 3
 
+/** A full-screen card, for a clip with no footage behind it. */
 export function newTitle(lines: string[] = ['In loving memory', '']): TitleSpec {
   const style = TITLE_STYLES[0]!
   return {
@@ -68,6 +69,21 @@ export function newTitle(lines: string[] = ['In loving memory', '']): TitleSpec 
     fontId: DEFAULT_FONT_ID,
     color: style.color,
     background: style.background,
+    placement: 'card',
+  }
+}
+
+/**
+ * Words over footage. Always white, because the picture underneath is unknown
+ * and white on a dark scrim is the one combination that survives any of it.
+ */
+export function newOverlay(lines: string[] = ['', '']): TitleSpec {
+  return {
+    lines: lines.slice(0, MAX_TITLE_LINES),
+    fontId: DEFAULT_FONT_ID,
+    color: '#ffffff',
+    background: '#000000',
+    placement: 'bottom',
   }
 }
 

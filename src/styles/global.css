@@ -804,6 +804,11 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.tl__hint {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
 .tl__zoom {
   margin-left: auto;
   display: flex;
@@ -911,6 +916,49 @@ a {
 
 .tlclip:hover {
   border-color: var(--accent-edge);
+}
+
+.tlclip:active {
+  cursor: grabbing;
+}
+
+/* Lifted and translucent while it is being carried, so the drop indicator
+   behind it stays readable. */
+.tlclip--dragging {
+  z-index: 4;
+  opacity: 0.85;
+  cursor: grabbing;
+  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.75);
+  transition: none;
+}
+
+/* A "T" on footage that has words over it. The inspector says so in full; this
+   is only so the timeline is scannable. */
+.tlclip__mark {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* Where the piece will land if released now. */
+.tl__drop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--focus);
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* Selection: a ring AND a brighter edge AND the inspector filling in. */

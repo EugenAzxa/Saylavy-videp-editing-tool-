@@ -18,14 +18,30 @@ export class MediaPool {
   private readonly videos = new Map<Id, HTMLVideoElement>()
   private readonly images = new Map<Id, HTMLImageElement>()
   private readonly audios = new Map<Id, HTMLAudioElement>()
+  private readonly posters = new Map<Id, HTMLImageElement>()
   private readonly container: HTMLDivElement
 
   constructor() {
     this.container = document.createElement('div')
-    // Off-screen rather than `display: none` — a hidden video element is
-    // allowed to stop decoding in some browsers, which stalls playback.
-    this.container.style.cssText =
-      'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden;pointer-events:none'
+    // These elements must stay *technically visible*. `display: none`,
+    // `visibility: hidden`, zero size and parking them off-screen all let
+    // Chrome suspend the decoder — a seek is then accepted, `currentTime`
+    // moves, and `readyState` sticks at HAVE_METADATA forever, so the canvas
+    // never gets a frame and the preview shows the previous clip.
+    //
+    // So: inside the viewport, non-zero size, almost transparent, behind
+    // everything and inert. Ugly, and load-bearing.
+    this.container.style.cssText = [
+      'position:fixed',
+      'left:0',
+      'bottom:0',
+      'width:2px',
+      'height:2px',
+      'opacity:0.01',
+      'overflow:hidden',
+      'pointer-events:none',
+      'z-index:-1',
+    ].join(';')
     this.container.setAttribute('aria-hidden', 'true')
     document.body.appendChild(this.container)
   }
@@ -62,6 +78,23 @@ export class MediaPool {
     for (const [id, audio] of this.audios) {
       if (id !== assetId && !audio.paused) audio.pause()
     }
+  }
+
+  /**
+   * The still generated at import, used as a stand-in while a video element
+   * is still working out how to show the frame that was asked for. Showing
+   * the right clip a second early beats showing the previous clip.
+   */
+  getPoster(asset: MediaAsset): HTMLImageElement | null {
+    if (!asset.posterUrl) return null
+
+    const existing = this.posters.get(asset.id)
+    if (existing) return existing
+
+    const poster = new Image()
+    poster.src = asset.posterUrl
+    this.posters.set(asset.id, poster)
+    return poster
   }
 
   getImage(asset: MediaAsset): HTMLImageElement {
@@ -112,11 +145,13 @@ export class MediaPool {
     }
 
     this.images.delete(assetId)
+    this.posters.delete(assetId)
   }
 
   dispose(): void {
     for (const id of [...this.videos.keys(), ...this.audios.keys()]) this.forget(id)
     this.images.clear()
+    this.posters.clear()
     this.container.remove()
   }
 }

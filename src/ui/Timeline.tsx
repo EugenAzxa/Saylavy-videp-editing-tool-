@@ -26,6 +26,26 @@ const RULER_HEIGHT = 26
 const TRACK_HEIGHT = 76
 const MUSIC_HEIGHT = 44
 
+/**
+ * How far the pointer must travel before a press becomes a drag. Below this
+ * it is a click, which selects. Without a threshold, selecting a piece with an
+ * unsteady hand would reorder the film instead.
+ */
+const DRAG_THRESHOLD = 6
+
+interface Drag {
+  clipId: string
+  from: number
+  /** Where the pointer went down, so movement can be measured. */
+  originX: number
+  /** Current horizontal offset, for dragging the block with the pointer. */
+  offsetX: number
+  /** Index the piece would land at if released now. */
+  to: number
+  /** False until the pointer has moved past the threshold. */
+  active: boolean
+}
+
 /** Choose a tick spacing that keeps labels roughly 90px apart. */
 function tickSeconds(pixelsPerSecond: number): number {
   const candidates = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300]
@@ -44,10 +64,13 @@ export function Timeline() {
   const setPlayhead = useEditor((state) => state.setPlayhead)
   const pause = useEditor((state) => state.pause)
 
+  const reorder = useEditor((state) => state.reorder)
+
   const [zoomIndex, setZoomIndex] = useState(2)
   const pixelsPerSecond = ZOOM_LEVELS[zoomIndex] ?? 40
   const laneRef = useRef<HTMLDivElement>(null)
   const [scrubbing, setScrubbing] = useState(false)
+  const [drag, setDrag] = useState<Drag | null>(null)
 
   const width = Math.max(duration * pixelsPerSecond, 320)
 
@@ -79,6 +102,58 @@ export function Timeline() {
     }
   }, [scrubbing, timeAt, setPlayhead])
 
+  // Dragging a piece to a new place in the film. Tracked on the window so the
+  // drag survives the pointer leaving the timeline, and resolved on release.
+  useEffect(() => {
+    if (!drag) return
+
+    const move = (event: PointerEvent) => {
+      const offsetX = event.clientX - drag.originX
+      const active = drag.active || Math.abs(offsetX) > DRAG_THRESHOLD
+      if (!active) return
+
+      const lane = laneRef.current
+      if (!lane) return
+      const box = lane.getBoundingClientRect()
+      const at = (event.clientX - box.left + lane.scrollLeft) / pixelsPerSecond
+
+      // Land where the pointer is, by comparing against each piece's midpoint.
+      let to = timeline.length - 1
+      for (const entry of timeline) {
+        if (at < entry.start + entry.clip.duration / 2) {
+          to = entry.index
+          break
+        }
+      }
+
+      setDrag((current) => (current ? { ...current, offsetX, to, active: true } : current))
+    }
+
+    const stop = () => {
+      // The reorder happens HERE, not inside a `setDrag` updater. React may
+      // invoke a state updater more than once — StrictMode does so
+      // deliberately — and a side effect in one runs as many times as it is
+      // called. Putting `reorder` in the updater moved the piece twice.
+      //
+      // Reading `drag` from the closure is correct: this effect re-subscribes
+      // on every change to `drag`, so the closure always holds the latest.
+      if (drag.active && drag.to !== drag.from) {
+        reorder(drag.from, drag.to)
+        announce(`Moved to position ${drag.to + 1} of ${timeline.length}.`)
+      }
+      setDrag(null)
+    }
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+    }
+  }, [drag, pixelsPerSecond, timeline, reorder])
+
   if (timeline.length === 0) return null
 
   const beginScrub = (clientX: number) => {
@@ -108,6 +183,7 @@ export function Timeline() {
           {timeline.length} {timeline.length === 1 ? 'piece' : 'pieces'} &middot;{' '}
           {formatDuration(duration)}
         </span>
+        <span className="tl__hint">Drag a piece to move it</span>
 
         <div className="tl__zoom">
           <button
@@ -152,39 +228,70 @@ export function Timeline() {
               const isSelected = entry.clip.id === selectedClipId
               const lines = entry.clip.title ? visibleLines(entry.clip.title) : []
 
+              const isCard = entry.clip.assetId === null
+              const beingDragged = drag?.active && drag.clipId === entry.clip.id
+
               return (
                 <button
                   key={entry.clip.id}
                   type="button"
                   className={`tlclip${isSelected ? ' tlclip--on' : ''}${
-                    entry.clip.title ? ' tlclip--text' : ''
-                  }`}
+                    isCard ? ' tlclip--text' : ''
+                  }${beingDragged ? ' tlclip--dragging' : ''}`}
                   style={{
                     left: entry.start * pixelsPerSecond,
                     width: Math.max(entry.clip.duration * pixelsPerSecond - 2, 10),
                     ...(asset?.posterUrl ? { backgroundImage: `url(${asset.posterUrl})` } : null),
-                    ...(entry.clip.title
+                    ...(isCard && entry.clip.title
                       ? { background: entry.clip.title.background, color: entry.clip.title.color }
                       : null),
+                    ...(beingDragged ? { transform: `translateX(${drag.offsetX}px)` } : null),
                   }}
                   aria-pressed={isSelected}
-                  onClick={() => chooseClip(entry)}
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return
+                    setDrag({
+                      clipId: entry.clip.id,
+                      from: entry.index,
+                      originX: event.clientX,
+                      offsetX: 0,
+                      to: entry.index,
+                      active: false,
+                    })
+                  }}
+                  // A drag ends on pointerup, which also fires a click; ignore
+                  // that one so releasing a drag does not re-select and seek.
+                  onClick={() => {
+                    if (!drag?.active) chooseClip(entry)
+                  }}
                 >
-                  {entry.clip.title ? (
-                    <span className="tlclip__title">{lines[0] ?? 'Text'}</span>
+                  {isCard ? <span className="tlclip__title">{lines[0] ?? 'Text'}</span> : null}
+                  {!isCard && entry.clip.title ? (
+                    <span className="tlclip__mark" aria-hidden="true">
+                      T
+                    </span>
                   ) : null}
                   <span className="tlclip__foot">
                     <span className="tlclip__name">
-                      {entry.clip.title ? 'Text' : (asset?.name ?? 'Missing')}
+                      {isCard ? 'Text' : (asset?.name ?? 'Missing')}
                     </span>
                     <span className="tlclip__len">{formatLength(entry.clip.duration)}</span>
                   </span>
                   <span className="visually-hidden">
                     Piece {entry.index + 1} of {timeline.length}
+                    {entry.clip.title && !isCard ? ', has words over it' : ''}
                   </span>
                 </button>
               )
             })}
+
+            {drag?.active && drag.to !== drag.from ? (
+              <span
+                className="tl__drop"
+                style={{ left: (timeline[drag.to]?.start ?? 0) * pixelsPerSecond }}
+                aria-hidden="true"
+              />
+            ) : null}
           </div>
 
           <div className="tl__track tl__track--music" style={{ height: MUSIC_HEIGHT }}>

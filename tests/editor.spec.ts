@@ -153,6 +153,35 @@ test.describe('editing', () => {
     await expect(page.locator('.tlclip')).toHaveCount(2)
   })
 
+  test('a piece can be dragged along the timeline, exactly once', async ({ page }) => {
+    await loadExample(page)
+    const names = () => page.locator('.tlclip__name').allInnerTexts()
+    const before = await names()
+
+    const first = page.locator('.tlclip').first()
+    const box = await first.boundingBox()
+    expect(box).not.toBeNull()
+
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box!.x + 400, box!.y + box!.height / 2, { steps: 10 })
+    await page.mouse.up()
+
+    // Exactly one piece moved. A side effect inside a state updater once made
+    // this run twice, which shuffled the film instead of moving one piece.
+    const after = await names()
+    expect(after).toEqual([before[1], before[2], before[0]])
+  })
+
+  test('a short press selects rather than drags', async ({ page }) => {
+    await loadExample(page)
+    const before = await page.locator('.tlclip__name').allInnerTexts()
+
+    await page.locator('.tlclip').first().click()
+    await expect(page.getByRole('heading', { name: /^piece 1$/i })).toBeVisible()
+    expect(await page.locator('.tlclip__name').allInnerTexts()).toEqual(before)
+  })
+
   test('trimming shortens the piece', async ({ page }) => {
     await loadExample(page)
     await page.locator('.tlclip').first().click()
@@ -181,6 +210,33 @@ test.describe('text cards', () => {
 
     await page.getByLabel('Line 1').fill('Margaret Ellen Hughes')
     await expect(page.locator('.tlclip--text .tlclip__title')).toHaveText('Margaret Ellen Hughes')
+  })
+
+  test('the card lands at the playhead, not at the end', async ({ page }) => {
+    await loadExample(page)
+    // Nothing selected, playhead inside the first of three 4-second pieces.
+    await page.getByRole('slider', { name: /position in the film/i }).fill('2')
+    await page.getByRole('button', { name: /^add text/i }).click()
+
+    const index = await page
+      .locator('.tlclip')
+      .evaluateAll((els) => els.findIndex((el) => el.classList.contains('tlclip--text')))
+    expect(index).toBe(1)
+  })
+
+  test('words can be put over footage, and taken off again', async ({ page }) => {
+    await loadExample(page)
+    await page.locator('.tlclip').first().click()
+
+    await page.getByRole('button', { name: /add words over this/i }).click()
+    await page.getByLabel('Overlay line 1').fill('Margaret Hughes')
+
+    // The piece keeps its footage — this is an overlay, not a card.
+    await expect(page.locator('.tlclip').first()).not.toHaveClass(/tlclip--text/)
+    await expect(page.locator('.tlclip').first().locator('.tlclip__mark')).toBeVisible()
+
+    await page.getByRole('button', { name: /remove the words/i }).click()
+    await expect(page.locator('.tlclip').first().locator('.tlclip__mark')).toHaveCount(0)
   })
 
   test('the font can be changed', async ({ page }) => {

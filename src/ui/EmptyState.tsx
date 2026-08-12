@@ -3,6 +3,7 @@ import { ACCEPTED_IMAGE_TYPES, ACCEPTED_VIDEO_TYPES } from '@/core/constants'
 import { createExampleFilm } from '@/media/exampleFilm'
 import { announce } from '@/state/announce'
 import { useEditor } from '@/state/store'
+import { Afterwards } from './Afterwards'
 import { Button } from './Button'
 import { PlusIcon, SparkIcon } from './Icon'
 
@@ -140,6 +141,8 @@ export function EmptyState() {
           </li>
         ))}
       </ol>
+
+      <Afterwards />
     </div>
   )
 }

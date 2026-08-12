@@ -42,6 +42,29 @@ test('opens on a start screen that explains itself and promises privacy', async 
   await expect(page.getByText(/nothing is uploaded/i)).toBeVisible()
 })
 
+test.describe('what happens afterwards', () => {
+  // Two of these three do not exist. The badges are the only thing stopping
+  // the start screen from claiming they do, and this section will be shown to
+  // investors — so the labels are asserted, not trusted.
+
+  test('shows the three outcomes with honest status labels', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /when the film is finished/i })).toBeVisible()
+
+    await expect(page.locator('.aw__item--now')).toContainText('Keep the film')
+    await expect(page.locator('.aw__item--now .aw__badge')).toHaveText(/works today/i)
+
+    await expect(page.locator('.aw__item--preview')).toContainText('A code on the stone')
+    await expect(page.locator('.aw__item--preview .aw__badge')).toHaveText(/preview/i)
+
+    await expect(page.locator('.aw__item--planned')).toContainText('Let others add to it')
+    await expect(page.locator('.aw__item--planned .aw__badge')).toHaveText(/planned/i)
+  })
+
+  test('says plainly that only one of them is built', async ({ page }) => {
+    await expect(page.locator('.aw__footnote')).toContainText(/only the first of these is built/i)
+  })
+})
+
 test.describe('accessibility guarantees', () => {
   test('body text is at least 16px', async ({ page }) => {
     const size = await page.evaluate(() => getComputedStyle(document.body).fontSize)

@@ -1044,7 +1044,12 @@ a {
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  place-content: center;
+  justify-items: center;
+  /* `safe` matters: plain `center` centres the content and then CLIPS the
+     overflow at the top when it is taller than the viewport, so the heading
+     disappears on a short window with no way to scroll back to it. `safe`
+     falls back to start-alignment exactly when that would happen. */
+  align-content: safe center;
   gap: 40px;
   padding: 40px 24px;
   text-align: center;
@@ -1125,6 +1130,380 @@ a {
   margin-top: 2px;
   font-size: 0.8rem;
   color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------------------
+   11b. The backdrop
+
+   Two very large, very soft washes of brand colour drifting past each other,
+   on a slow enough cycle that you never catch them moving — you only notice
+   the screen is not a flat slab. Ninety seconds a loop, heavily blurred, low
+   opacity.
+
+   Start screen only. During editing the picture is the subject and nothing
+   should compete with it.
+
+   `position: fixed` and `filter: blur()` keep this on the compositor rather
+   than repainting on scroll.
+   -------------------------------------------------------------------------- */
+
+.start::before,
+.start::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
+}
+
+.start::before {
+  width: 46vw;
+  height: 46vw;
+  top: -14vw;
+  left: -8vw;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 60%, transparent), transparent 68%);
+  opacity: 0.5;
+  animation: driftA 92s ease-in-out infinite alternate;
+}
+
+.start::after {
+  width: 38vw;
+  height: 38vw;
+  right: -10vw;
+  bottom: -12vw;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-edge) 48%, transparent),
+    transparent 68%
+  );
+  opacity: 0.38;
+  animation: driftB 74s ease-in-out infinite alternate;
+}
+
+:root[data-theme='light'] .start::before {
+  opacity: 0.28;
+}
+
+:root[data-theme='light'] .start::after {
+  opacity: 0.22;
+}
+
+@keyframes driftA {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(9vw, 7vh, 0) scale(1.16);
+  }
+}
+
+@keyframes driftB {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-8vw, -6vh, 0) scale(0.94);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11c. When the film is finished
+   -------------------------------------------------------------------------- */
+
+.aw {
+  max-width: 980px;
+  padding-top: 28px;
+  border-top: 1px solid var(--hair);
+  text-align: left;
+}
+
+.aw__title {
+  font-size: 1.1rem;
+  margin-bottom: 18px;
+}
+
+.aw__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.aw__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-lg);
+}
+
+.aw__frame {
+  border-radius: var(--radius);
+  background: var(--raised);
+  border: 1px solid var(--hair);
+  padding: 6px;
+}
+
+.aw__art {
+  width: 100%;
+  height: auto;
+}
+
+.aw__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.aw__head h3 {
+  font-size: 0.95rem;
+}
+
+.aw__item p {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* The badges are the honest label on two unbuilt features. Keep them. */
+.aw__badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+
+.aw__badge--now {
+  color: var(--good);
+}
+
+.aw__badge--preview {
+  color: var(--accent-edge);
+}
+
+.aw__badge--planned {
+  color: var(--ink-faint);
+}
+
+.aw__footnote {
+  margin-top: 16px;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  max-width: 70ch;
+}
+
+/* --- the drawings ------------------------------------------------------- */
+
+.aw__art {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.aw__ground {
+  stroke: var(--hair-strong);
+  stroke-width: 2;
+}
+
+.aw__stone {
+  fill: var(--panel);
+  stroke: var(--hair-strong);
+  stroke-width: 2;
+}
+
+.aw__plaque {
+  fill: var(--shell);
+  stroke: var(--accent-edge);
+  stroke-width: 1.5;
+}
+
+.aw__code rect {
+  fill: var(--ink-soft);
+}
+
+.aw__scan {
+  fill: var(--accent-edge);
+  opacity: 0.85;
+  animation: awScan 5.5s ease-in-out infinite;
+}
+
+.aw__play {
+  fill: var(--accent);
+  opacity: 0;
+  animation: awPlay 5.5s ease-in-out infinite;
+}
+
+.aw__play-tri {
+  fill: #fff;
+}
+
+.aw__film {
+  fill: var(--panel);
+  stroke: var(--hair-strong);
+  stroke-width: 2;
+}
+
+.aw__perf {
+  stroke: var(--hair);
+  stroke-width: 1.5;
+}
+
+.aw__film-tri {
+  fill: var(--accent-edge);
+}
+
+.aw__arrow {
+  stroke: var(--accent-edge);
+  stroke-width: 3;
+}
+
+.aw__falling {
+  animation: awFall 2.8s ease-in-out infinite;
+}
+
+.aw__tray {
+  fill: var(--raised);
+  stroke: var(--hair-strong);
+  stroke-width: 2;
+}
+
+.aw__envelope {
+  fill: var(--panel);
+  stroke: var(--hair-strong);
+  stroke-width: 2;
+}
+
+.aw__envelope-flap {
+  stroke: var(--hair-strong);
+  stroke-width: 2;
+}
+
+.aw__letter {
+  animation: awSend 5s ease-in-out infinite;
+}
+
+.aw__path {
+  stroke: var(--hair-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 5;
+}
+
+.aw__cell {
+  stroke-width: 2;
+}
+
+.aw__cell--own {
+  fill: var(--raised);
+  stroke: var(--hair-strong);
+}
+
+.aw__cell--joins {
+  fill: color-mix(in srgb, var(--accent) 35%, transparent);
+  stroke: var(--accent-edge);
+  opacity: 0;
+  animation: awJoin 5s ease-in-out infinite;
+}
+
+.aw__cell--late {
+  animation-delay: 0.5s;
+}
+
+@keyframes awScan {
+  0%,
+  8% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.85;
+  }
+  44% {
+    transform: translateY(30px);
+    opacity: 0.85;
+  }
+  52%,
+  100% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+}
+
+@keyframes awPlay {
+  0%,
+  50% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  62%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes awFall {
+  0%,
+  10% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  35% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(6px);
+  }
+  85%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes awSend {
+  0%,
+  12% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(46px);
+    opacity: 0;
+  }
+  41%,
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes awJoin {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  55%,
+  88% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(8px);
+  }
 }
 
 /* --------------------------------------------------------------------------
